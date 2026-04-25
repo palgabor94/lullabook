@@ -8,6 +8,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app.dart';
+import 'data/sources/local/story_cache.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -18,6 +19,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  await StoryCache.init();
   await _configureRevenueCat();
 
   await SentryFlutter.init(

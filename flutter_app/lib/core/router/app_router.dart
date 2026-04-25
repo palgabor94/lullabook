@@ -13,6 +13,9 @@ import '../../features/onboarding_preview/photo_picker_screen.dart';
 import '../../features/onboarding_preview/preview_intro_screen.dart';
 import '../../features/onboarding_preview/preview_reveal_screen.dart';
 import '../../features/splash/splash_screen.dart';
+import '../../features/home/home_screen.dart';
+import '../../features/paywall/paywall_screen.dart';
+import '../../features/settings/settings_screen.dart';
 import '../../features/story_generation/story_generating_screen.dart';
 import '../../features/story_reader/story_reader_screen.dart';
 import '../../features/tonight_adventure/adventure_setup_screen.dart';
@@ -32,7 +35,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (loc.startsWith('/preview')) return null;
 
       if (!isLoggedIn && !loc.startsWith('/auth')) return '/auth';
-      if (isLoggedIn && loc.startsWith('/auth')) return '/adventure';
+      if (isLoggedIn && loc.startsWith('/auth')) return '/home';
       return null;
     },
     routes: [
@@ -89,6 +92,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/hero/anchor-preview',
         builder: (_, state) =>
             HeroAnchorPreviewScreen(heroData: state.extra as Map<String, dynamic>),
+      ),
+
+      // Main hub
+      GoRoute(
+        path: '/home',
+        builder: (_, __) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (_, __) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/paywall',
+        builder: (_, __) => const PaywallScreen(),
       ),
 
       // F-2 Tonight's adventure

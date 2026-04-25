@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/story.dart';
+import '../sources/local/story_cache.dart';
 
 final storyRepositoryProvider = Provider<StoryRepository>((ref) => StoryRepository());
 
@@ -58,7 +59,14 @@ class StoryRepository {
     return _storiesCol(uid)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map(Story.fromFirestore).toList());
+        .map((snap) {
+      final stories = snap.docs.map(Story.fromFirestore).toList();
+      // Write-through cache: persist latest snapshot for offline reads
+      for (final s in stories) {
+        storyCache.put(s);
+      }
+      return stories;
+    });
   }
 
   Stream<List<Story>> watchForHero(String heroId) {
