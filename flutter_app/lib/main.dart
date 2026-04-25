@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app.dart';
@@ -15,6 +18,8 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  await _configureRevenueCat();
+
   await SentryFlutter.init(
     (options) {
       options.dsn = dotenv.env['SENTRY_DSN_FLUTTER'] ?? '';
@@ -22,4 +27,14 @@ void main() async {
     },
     appRunner: () => runApp(const ProviderScope(child: LullabookApp())),
   );
+}
+
+Future<void> _configureRevenueCat() async {
+  final apiKey = Platform.isIOS
+      ? dotenv.env['REVENUECAT_PUBLIC_API_KEY_IOS'] ?? ''
+      : dotenv.env['REVENUECAT_PUBLIC_API_KEY_ANDROID'] ?? '';
+
+  if (apiKey.isEmpty) return;
+
+  await Purchases.configure(PurchasesConfiguration(apiKey));
 }

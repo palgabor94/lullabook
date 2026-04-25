@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 final authStateProvider = StreamProvider<User?>((ref) {
@@ -35,7 +36,9 @@ class AuthRepository {
       rawNonce: nonce,
     );
 
-    return _auth.signInWithCredential(oauthCredential);
+    final result = await _auth.signInWithCredential(oauthCredential);
+    await Purchases.logIn(result.user!.uid);
+    return result;
   }
 
   Future<UserCredential?> signInWithGoogle() async {
@@ -48,10 +51,13 @@ class AuthRepository {
       idToken: googleAuth.idToken,
     );
 
-    return _auth.signInWithCredential(credential);
+    final result = await _auth.signInWithCredential(credential);
+    await Purchases.logIn(result.user!.uid);
+    return result;
   }
 
   Future<void> signOut() async {
+    await Purchases.logOut();
     await Future.wait([
       _auth.signOut(),
       GoogleSignIn().signOut(),
