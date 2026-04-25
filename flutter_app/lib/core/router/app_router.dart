@@ -13,6 +13,8 @@ import '../../features/onboarding_preview/photo_picker_screen.dart';
 import '../../features/onboarding_preview/preview_intro_screen.dart';
 import '../../features/onboarding_preview/preview_reveal_screen.dart';
 import '../../features/splash/splash_screen.dart';
+import '../../features/story_generation/story_generating_screen.dart';
+import '../../features/story_reader/story_reader_screen.dart';
 import '../../features/tonight_adventure/adventure_setup_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -98,12 +100,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Stub: story generation (Week 6)
       GoRoute(
         path: '/story/generating',
-        builder: (_, __) => const Scaffold(
-          body: Center(child: Text('Generating story… (Week 6)')),
-        ),
+        builder: (_, state) {
+          final e = state.extra as Map<String, dynamic>;
+          return StoryGeneratingScreen(
+            heroId: e['heroId'] as String,
+            setup: e['setup'] as Map<String, dynamic>,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/story/reader/:storyId',
+        builder: (_, state) =>
+            StoryReaderScreen(storyId: state.pathParameters['storyId']!),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

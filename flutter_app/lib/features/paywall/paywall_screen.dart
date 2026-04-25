@@ -211,7 +211,7 @@ class _PackageTile extends StatelessWidget {
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 16)),
                 Text(_subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                         color: AppColors.textSecondary, fontSize: 13)),
               ],
             ),

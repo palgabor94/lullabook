@@ -33,6 +33,7 @@ export interface SceneInput {
   scenePrompt: string;
   definingTraits: string;
   heroAnchorStoragePath: string;
+  artStyle?: string;
 }
 
 const ART_STYLE_PROMPTS: Record<string, string> = {
