@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && !affectedKeys().hasAny(['subscription', 'totalStoriesCreated', 'previewsUsed']);
+      allow delete: if false;
+    }
+
+    match /users/{userId}/heroes/{heroId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    match /users/{userId}/stories/{storyId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && affectedKeys().hasOnly(['readCount', 'lastReadAt', 'favorite']);
+      allow create, delete: if false;
+    }
+
+    match /previews/{previewId} {
+      allow read: if request.auth != null
+                  && resource.data.claimedByUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /abuseTracking/{anyId} {
+      allow read, write: if false;
+    }
+
+    match /systemPrompts/{language} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    function affectedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+  }
+}
