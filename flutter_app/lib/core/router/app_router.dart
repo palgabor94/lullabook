@@ -1,12 +1,14 @@
-import 'dart:async';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/preview_repository.dart';
 import '../../features/auth/auth_screen.dart';
+import '../../features/onboarding_preview/photo_picker_screen.dart';
+import '../../features/onboarding_preview/preview_intro_screen.dart';
+import '../../features/onboarding_preview/preview_reveal_screen.dart';
 import '../../features/splash/splash_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -18,26 +20,51 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) {
       final isLoggedIn = FirebaseAuth.instance.currentUser != null;
-      final isAuthRoute = state.matchedLocation.startsWith('/auth');
-      final isSplash = state.matchedLocation == '/splash';
+      final loc = state.matchedLocation;
 
-      if (isSplash) return null;
-      if (!isLoggedIn && !isAuthRoute) return '/auth';
-      if (isLoggedIn && isAuthRoute) return '/';
+      if (loc == '/splash') return null;
+      // Preview flow is accessible without auth
+      if (loc.startsWith('/preview')) return null;
+
+      if (!isLoggedIn && !loc.startsWith('/auth')) return '/auth';
+      if (isLoggedIn && loc.startsWith('/auth')) return '/';
       return null;
     },
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (context, state) => const SplashScreen(),
+        builder: (_, __) => const SplashScreen(),
       ),
       GoRoute(
         path: '/auth',
-        builder: (context, state) => const AuthScreen(),
+        builder: (_, state) => AuthScreen(
+          pendingPreviewId: (state.extra as Map?)?['previewId'] as String?,
+        ),
+      ),
+      GoRoute(
+        path: '/preview/intro',
+        builder: (_, __) => const PreviewIntroScreen(),
+      ),
+      GoRoute(
+        path: '/preview/photo',
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return PhotoPickerScreen(
+            childName: extra['childName'] as String,
+            adventureChoice: extra['adventureChoice'] as String,
+            artStyle: extra['artStyle'] as String,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/preview/reveal',
+        builder: (_, state) => PreviewRevealScreen(
+          result: state.extra as GeneratePreviewResult,
+        ),
       ),
       GoRoute(
         path: '/',
-        builder: (context, state) => const _HomeStub(),
+        builder: (_, __) => const _HomeStub(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
@@ -62,7 +89,6 @@ class _AuthRouterNotifier extends ChangeNotifier {
   }
 }
 
-// Temporary home placeholder until hero_setup / library screens are built
 class _HomeStub extends StatelessWidget {
   const _HomeStub();
 

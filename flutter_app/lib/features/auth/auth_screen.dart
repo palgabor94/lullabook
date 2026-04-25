@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/preview_repository.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.pendingPreviewId});
+
+  final String? pendingPreviewId;
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -19,6 +23,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     setState(() => _loading = true);
     try {
       await ref.read(authRepositoryProvider).signInWithApple();
+      await _claimPendingPreview();
     } catch (e) {
       if (mounted) _showError('Apple Sign-In failed. Please try again.');
     } finally {
@@ -30,10 +35,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     setState(() => _loading = true);
     try {
       await ref.read(authRepositoryProvider).signInWithGoogle();
+      await _claimPendingPreview();
     } catch (e) {
       if (mounted) _showError('Google Sign-In failed. Please try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _claimPendingPreview() async {
+    final previewId = widget.pendingPreviewId;
+    if (previewId == null) return;
+    try {
+      await ref.read(previewRepositoryProvider).claimPreview(previewId);
+    } catch (_) {
+      // Non-fatal — user can still proceed without the preview being claimed
     }
   }
 
@@ -79,6 +95,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ),
                 const SizedBox(height: 16),
                 _GoogleSignInButton(onPressed: _signInWithGoogle),
+                const SizedBox(height: 24),
+                TextButton(
+                  onPressed: () => context.push('/preview/intro'),
+                  child: const Text('Try a free preview first →'),
+                ),
               ],
               const SizedBox(height: 48),
             ],
