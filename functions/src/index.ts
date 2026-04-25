@@ -1,3 +1,6 @@
+import { initializeApp } from 'firebase-admin/app';
+initializeApp();
+
 export { generatePreview } from './handlers/generatePreview';
 export { claimPreview } from './handlers/claimPreview';
 export { createHero } from './handlers/createHero';
