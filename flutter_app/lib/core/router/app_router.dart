@@ -6,10 +6,14 @@ import 'package:go_router/go_router.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/preview_repository.dart';
 import '../../features/auth/auth_screen.dart';
+import '../../features/hero_setup/hero_anchor_preview_screen.dart';
+import '../../features/hero_setup/hero_info_screen.dart';
+import '../../features/hero_setup/hero_photo_screen.dart';
 import '../../features/onboarding_preview/photo_picker_screen.dart';
 import '../../features/onboarding_preview/preview_intro_screen.dart';
 import '../../features/onboarding_preview/preview_reveal_screen.dart';
 import '../../features/splash/splash_screen.dart';
+import '../../features/tonight_adventure/adventure_setup_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthRouterNotifier(ref);
@@ -23,11 +27,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
 
       if (loc == '/splash') return null;
-      // Preview flow is accessible without auth
       if (loc.startsWith('/preview')) return null;
 
       if (!isLoggedIn && !loc.startsWith('/auth')) return '/auth';
-      if (isLoggedIn && loc.startsWith('/auth')) return '/';
+      if (isLoggedIn && loc.startsWith('/auth')) return '/adventure';
       return null;
     },
     routes: [
@@ -35,36 +38,72 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/splash',
         builder: (_, __) => const SplashScreen(),
       ),
+
+      // Auth
       GoRoute(
         path: '/auth',
         builder: (_, state) => AuthScreen(
           pendingPreviewId: (state.extra as Map?)?['previewId'] as String?,
         ),
       ),
-      GoRoute(
-        path: '/preview/intro',
-        builder: (_, __) => const PreviewIntroScreen(),
-      ),
+
+      // F-0 Preview flow (no auth required)
+      GoRoute(path: '/preview/intro', builder: (_, __) => const PreviewIntroScreen()),
       GoRoute(
         path: '/preview/photo',
         builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>;
+          final e = state.extra as Map<String, dynamic>;
           return PhotoPickerScreen(
-            childName: extra['childName'] as String,
-            adventureChoice: extra['adventureChoice'] as String,
-            artStyle: extra['artStyle'] as String,
+            childName: e['childName'] as String,
+            adventureChoice: e['adventureChoice'] as String,
+            artStyle: e['artStyle'] as String,
           );
         },
       ),
       GoRoute(
         path: '/preview/reveal',
-        builder: (_, state) => PreviewRevealScreen(
-          result: state.extra as GeneratePreviewResult,
-        ),
+        builder: (_, state) =>
+            PreviewRevealScreen(result: state.extra as GeneratePreviewResult),
+      ),
+
+      // F-1 Hero setup
+      GoRoute(
+        path: '/hero/setup',
+        builder: (_, state) {
+          final e = state.extra as Map?;
+          return HeroInfoScreen(
+            prefillName: e?['childName'] as String?,
+            prefillArtStyle: e?['artStyle'] as String?,
+            previewId: e?['previewId'] as String?,
+          );
+        },
       ),
       GoRoute(
-        path: '/',
-        builder: (_, __) => const _HomeStub(),
+        path: '/hero/photo',
+        builder: (_, state) =>
+            HeroPhotoScreen(heroData: state.extra as Map<String, dynamic>),
+      ),
+      GoRoute(
+        path: '/hero/anchor-preview',
+        builder: (_, state) =>
+            HeroAnchorPreviewScreen(heroData: state.extra as Map<String, dynamic>),
+      ),
+
+      // F-2 Tonight's adventure
+      GoRoute(
+        path: '/adventure',
+        builder: (_, state) {
+          final heroId = (state.extra as Map?)?['heroId'] as String? ?? '';
+          return AdventureSetupScreen(heroId: heroId);
+        },
+      ),
+
+      // Stub: story generation (Week 6)
+      GoRoute(
+        path: '/story/generating',
+        builder: (_, __) => const Scaffold(
+          body: Center(child: Text('Generating story… (Week 6)')),
+        ),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
@@ -86,16 +125,5 @@ class _AuthRouterNotifier extends ChangeNotifier {
   void dispose() {
     _sub?.close();
     super.dispose();
-  }
-}
-
-class _HomeStub extends StatelessWidget {
-  const _HomeStub();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Home — coming soon')),
-    );
   }
 }
