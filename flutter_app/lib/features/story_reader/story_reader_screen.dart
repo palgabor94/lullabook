@@ -152,20 +152,21 @@ class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
                 ),
 
                 // Controls overlay (auto-hide) §4.12
-                AnimatedOpacity(
-                  opacity: _controlsVisible ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 250),
-                  child: IgnorePointer(
-                    ignoring: !_controlsVisible,
-                    child: _ControlsOverlay(
-                      story: story,
-                      currentPage: _currentPage,
-                      totalPages: pages.length,
-                      isPlaying: _isPlaying,
-                      onClose: () => context.go('/home'),
-                      onTogglePlay: () {
-                        if (pages.isNotEmpty) _togglePlay(pages[_currentPage]);
-                      },
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedOpacity(
+                    opacity: _controlsVisible ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 250),
+                    child: IgnorePointer(
+                      ignoring: !_controlsVisible,
+                      child: _ControlsOverlay(
+                        story: story,
+                        currentPage: _currentPage,
+                        totalPages: pages.length,
+                        onClose: () => context.go('/home'),
+                      ),
                     ),
                   ),
                 ),
@@ -247,16 +248,7 @@ class _StoryPageView extends StatelessWidget {
               children: [
                 Expanded(
                   child: SingleChildScrollView(
-                    child: Text(
-                      page.text,
-                      style: GoogleFonts.fraunces(
-                        fontSize: 17,
-                        height: 1.6,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -0.085,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+                    child: _StoryText(text: page.text),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -324,6 +316,57 @@ class _PageImage extends StatelessWidget {
   }
 }
 
+// ── Story text with dialogue highlighting ────────────────────────────────────
+
+class _StoryText extends StatelessWidget {
+  const _StoryText({required this.text});
+  final String text;
+
+  List<({String text, bool isDialogue})> _parse(String input) {
+    final segments = <({String text, bool isDialogue})>[];
+    // matches both straight "..." and curly "..." dialogue quotes
+    final regex = RegExp(r'"[^"]+"|"[^"]+"');
+    int lastEnd = 0;
+    for (final match in regex.allMatches(input)) {
+      if (match.start > lastEnd) {
+        segments.add((text: input.substring(lastEnd, match.start), isDialogue: false));
+      }
+      segments.add((text: match.group(0)!, isDialogue: true));
+      lastEnd = match.end;
+    }
+    if (lastEnd < input.length) {
+      segments.add((text: input.substring(lastEnd), isDialogue: false));
+    }
+    return segments;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = GoogleFonts.fraunces(
+      fontSize: 17,
+      height: 1.6,
+      fontWeight: FontWeight.w400,
+      letterSpacing: -0.085,
+      color: AppColors.textPrimary,
+    );
+    return RichText(
+      text: TextSpan(
+        style: baseStyle,
+        children: _parse(text).map((seg) => TextSpan(
+          text: seg.text,
+          style: seg.isDialogue
+              ? const TextStyle(
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.gold500,
+                )
+              : null,
+        )).toList(),
+      ),
+    );
+  }
+}
+
 // ── Controls overlay ──────────────────────────────────────────────────────────
 
 class _ControlsOverlay extends StatelessWidget {
@@ -331,124 +374,61 @@ class _ControlsOverlay extends StatelessWidget {
     required this.story,
     required this.currentPage,
     required this.totalPages,
-    required this.isPlaying,
     required this.onClose,
-    required this.onTogglePlay,
   });
 
   final dynamic story;
   final int currentPage;
   final int totalPages;
-  final bool isPlaying;
   final VoidCallback onClose;
-  final VoidCallback onTogglePlay;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Top bar — close + favorite
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Container(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 8,
-              left: 8,
-              right: 8,
-              bottom: 8,
-            ),
+    return Container(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 8,
+        left: 8,
+        right: 8,
+        bottom: 8,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.black.withAlpha(160), Colors.transparent],
+        ),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: onClose,
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.black.withAlpha(160), Colors.transparent],
+              color: Colors.black.withAlpha(120),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '${currentPage + 1} / $totalPages',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: onClose,
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(120),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${currentPage + 1} / $totalPages',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: Icon(
-                    story.favorite ? Icons.favorite : Icons.favorite_border,
-                    color: story.favorite ? AppColors.gold500 : Colors.white,
-                  ),
-                  onPressed: () {},
-                ),
-              ],
-            ),
           ),
-        ),
-
-        // Bottom audio controls
-        Positioned(
-          bottom: MediaQuery.of(context).padding.bottom + 56,
-          left: 0,
-          right: 0,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [Colors.black.withAlpha(160), Colors.transparent],
-              ),
+          const Spacer(),
+          IconButton(
+            icon: Icon(
+              story.favorite ? Icons.favorite : Icons.favorite_border,
+              color: story.favorite ? AppColors.gold500 : Colors.white,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _AudioButton(
-                  icon: isPlaying ? Icons.pause : Icons.play_arrow,
-                  onTap: onTogglePlay,
-                ),
-              ],
-            ),
+            onPressed: () {},
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AudioButton extends StatelessWidget {
-  const _AudioButton({required this.icon, required this.onTap});
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: AppColors.bgCard.withAlpha(220),
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.borderDefault),
-        ),
-        child: Icon(icon, color: AppColors.gold500, size: 26),
+        ],
       ),
     );
   }
