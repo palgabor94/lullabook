@@ -103,13 +103,13 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
               const SizedBox(height: 24),
 
               // Eyebrow + title + subtitle
-              const Text(
-                'STEP 3 OF 3 · UPLOAD PHOTO',
+              Text(
+                'STEP 3 OF 3 · ${name.toUpperCase()}\'S PHOTO',
                 style: LullabookTypography.eyebrowMd,
               ),
               const SizedBox(height: 8),
-              Text(
-                'A clear photo of\n$name',
+              const Text(
+                'A clear photo\nworks best',
                 style: LullabookTypography.displayXl,
               ),
               const SizedBox(height: 8),

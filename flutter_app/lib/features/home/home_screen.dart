@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/lullabook_typography.dart';
 import '../../data/repositories/hero_repository.dart';
 import '../../data/repositories/story_repository.dart';
 import '../../data/sources/local/story_cache.dart';
 import '../../domain/entities/story.dart';
-
-// Alias to avoid conflict with Flutter's built-in Hero widget
 import '../../domain/entities/hero.dart' as domain;
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -22,237 +22,426 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  String _filter = 'recent'; // 'recent' | 'favorite'
+  String _filter = 'recent';
 
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
+  String _currentDateTimeLabel() {
+    final now = DateTime.now();
+    const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+    final day = days[now.weekday - 1];
+    final hour = now.hour % 12 == 0 ? 12 : now.hour % 12;
+    final minute = now.minute.toString().padLeft(2, '0');
+    final period = now.hour >= 12 ? 'PM' : 'AM';
+    return '$day · $hour:$minute $period';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final heroAsync = ref.watch(firstHeroProvider(_uid));
+    final heroesAsync  = ref.watch(heroListProvider(_uid));
     final storiesAsync = ref.watch(storyListProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Lullabook',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _startAdventure(heroAsync.valueOrNull),
-        backgroundColor: AppColors.primary,
-        label: const Text('New adventure',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        icon: const Icon(Icons.auto_stories, color: Colors.white),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          // Hero banner
-          SliverToBoxAdapter(
-            child: heroAsync.when(
-              loading: () => const SizedBox(height: 80),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (hero) => hero == null
-                  ? _NoHeroBanner(onSetup: () => context.push('/hero/setup'))
-                  : _HeroBanner(hero: hero),
-            ),
-          ),
+    final firstHero = heroesAsync.valueOrNull?.isNotEmpty == true
+        ? heroesAsync.valueOrNull!.first
+        : null;
 
-          // Filter chips
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                children: [
-                  const Text(
-                    'Stories',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  const Spacer(),
-                  _FilterChip(
-                    label: 'Recent',
-                    selected: _filter == 'recent',
-                    onTap: () => setState(() => _filter = 'recent'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Favourites',
-                    selected: _filter == 'favorite',
-                    onTap: () => setState(() => _filter = 'favorite'),
-                  ),
-                ],
+    return Scaffold(
+      backgroundColor: AppColors.bgBase,
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+
+            // ── Top bar ─────────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 20, 0),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Lullabook',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        letterSpacing: -0.36,
+                        color: AppColors.gold500,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined,
+                          color: AppColors.textSecondary, size: 22),
+                      onPressed: () => context.push('/settings'),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // Story list
-          storiesAsync.when(
-            loading: () => const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (_, __) => SliverToBoxAdapter(
-              child: _OfflineList(filter: _filter),
-            ),
-            data: (stories) {
-              final filtered = _filter == 'favorite'
-                  ? stories.where((s) => s.favorite).toList()
-                  : stories;
-
-              if (filtered.isEmpty) {
-                return SliverFillRemaining(
-                  child: _EmptyState(
-                    isFavoriteFilter: _filter == 'favorite',
-                    hasHero: heroAsync.valueOrNull != null,
-                    onAction: () => _startAdventure(heroAsync.valueOrNull),
-                  ),
-                );
-              }
-
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, i) => _StoryCard(
-                      story: filtered[i],
-                      index: i,
-                      onTap: () =>
-                          context.push('/story/reader/${filtered[i].storyId}'),
-                      onFavourite: () => ref
-                          .read(storyRepositoryProvider)
-                          .toggleFavorite(
-                            filtered[i].storyId,
-                            favorite: !filtered[i].favorite,
-                          ),
+            // ── Greeting ────────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _currentDateTimeLabel(),
+                      style: LullabookTypography.eyebrowMd,
                     ),
-                    childCount: filtered.length,
+                    const SizedBox(height: 8),
+                    Text(
+                      firstHero != null
+                          ? 'Good evening, ${firstHero.name}'
+                          : 'Good evening',
+                      style: AppTextStyles.displayMd(color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Ready for tonight\'s adventure?',
+                      style: AppTextStyles.bodyMd(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Hero carousel ────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 24),
+                child: heroesAsync.when(
+                  loading: () => const _HeroCarouselSkeleton(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (heroes) => _HeroCarousel(
+                    heroes: heroes,
+                    onHeroTap: (h) =>
+                        context.push('/adventure', extra: {'heroId': h.heroId}),
+                    onAddHero: () => context.push('/hero/setup'),
+                    onDeleteHero: (h) => _confirmDeleteHero(context, h),
                   ),
                 ),
-              );
-            },
-          ),
-        ],
+              ),
+            ),
+
+            // ── "Continue reading" ───────────────────────────────────────────
+            storiesAsync.when(
+              loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+              error: (_, __) => SliverToBoxAdapter(child: _OfflineSection()),
+              data: (stories) {
+                final recent = stories.take(5).toList();
+                if (recent.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+
+                return SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 32, 24, 14),
+                        child: Text(
+                          'Continue reading',
+                          style: AppTextStyles.eyebrowMd(color: AppColors.textTertiary),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 220,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: recent.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          itemBuilder: (ctx, i) => _StoryThumbnail(
+                            story: recent[i],
+                            onTap: () => context.push('/story/reader/${recent[i].storyId}'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            // ── Library grid ─────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 14),
+                child: Row(
+                  children: [
+                    Text(
+                      'Library',
+                      style: AppTextStyles.eyebrowMd(color: AppColors.textTertiary),
+                    ),
+                    const Spacer(),
+                    _FilterPill(
+                      label: 'Recent',
+                      selected: _filter == 'recent',
+                      onTap: () => setState(() => _filter = 'recent'),
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterPill(
+                      label: 'Favourites',
+                      selected: _filter == 'favorite',
+                      onTap: () => setState(() => _filter = 'favorite'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            storiesAsync.when(
+              loading: () => const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator(color: AppColors.gold500)),
+              ),
+              error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+              data: (stories) {
+                final filtered = _filter == 'favorite'
+                    ? stories.where((s) => s.favorite).toList()
+                    : stories;
+
+                if (filtered.isEmpty) {
+                  return SliverFillRemaining(
+                    child: _EmptyState(
+                      isFavoriteFilter: _filter == 'favorite',
+                      hasHero: firstHero != null,
+                      onAction: () {
+                        if (firstHero == null) {
+                          context.push('/hero/setup');
+                        } else {
+                          context.push('/adventure', extra: {'heroId': firstHero.heroId});
+                        }
+                      },
+                    ),
+                  );
+                }
+
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 168 / 220,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _StoryGridCard(
+                        story: filtered[i],
+                        index: i,
+                        onTap: () => context.push('/story/reader/${filtered[i].storyId}'),
+                        onFavourite: () => ref
+                            .read(storyRepositoryProvider)
+                            .toggleFavorite(filtered[i].storyId, favorite: !filtered[i].favorite),
+                      ),
+                      childCount: filtered.length,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+
+      // ── Bottom tab bar §3.10 ─────────────────────────────────────────────
+      bottomNavigationBar: _BottomTabBar(
+        currentIndex: 0,
+        onTap: (i) {
+          if (i == 2) context.push('/settings');
+        },
       ),
     );
   }
 
-  void _startAdventure(domain.Hero? hero) {
-    if (hero == null) {
-      context.push('/hero/setup');
-    } else {
-      context.push('/adventure', extra: {'heroId': hero.heroId});
+  Future<void> _confirmDeleteHero(BuildContext context, domain.Hero hero) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgElevated,
+        title: Text('Delete ${hero.name}?',
+            style: const TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          'This will permanently delete ${hero.name}\'s hero profile. Stories created with this hero will remain in your library.',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(heroRepositoryProvider).deleteHero(hero.heroId);
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not delete hero. Please try again.')),
+      );
     }
   }
 }
 
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({required this.hero});
-  final domain.Hero hero;
+// ── Hero carousel ─────────────────────────────────────────────────────────────
+
+class _HeroCarousel extends StatelessWidget {
+  const _HeroCarousel({
+    required this.heroes,
+    required this.onHeroTap,
+    required this.onAddHero,
+    required this.onDeleteHero,
+  });
+
+  final List<domain.Hero> heroes;
+  final ValueChanged<domain.Hero> onHeroTap;
+  final VoidCallback onAddHero;
+  final ValueChanged<domain.Hero> onDeleteHero;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, Color(0xFF9B7FD4)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
+    return SizedBox(
+      height: 180,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        scrollDirection: Axis.horizontal,
+        itemCount: heroes.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (ctx, i) {
+          if (i == heroes.length) {
+            return _AddHeroCard(onTap: onAddHero);
+          }
+          return _HeroCard(
+            hero: heroes[i],
+            onTap: () => onHeroTap(heroes[i]),
+            onDelete: () => onDeleteHero(heroes[i]),
+          );
+        },
       ),
-      child: Row(
-        children: [
-          ClipOval(
-            child: CachedNetworkImage(
-              imageUrl: hero.heroAnchorThumbUrl,
-              width: 64,
-              height: 64,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => Container(
-                width: 64,
-                height: 64,
-                color: Colors.white24,
-                child: const Icon(Icons.person, color: Colors.white54, size: 32),
-              ),
-              errorWidget: (_, __, ___) => Container(
-                width: 64,
-                height: 64,
-                color: Colors.white24,
-                child: const Icon(Icons.person, color: Colors.white54, size: 32),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  hero.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  '${hero.age} years old · ${hero.artStyle.label}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, duration: 400.ms);
+    );
   }
 }
 
-class _NoHeroBanner extends StatelessWidget {
-  const _NoHeroBanner({required this.onSetup});
-  final VoidCallback onSetup;
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({required this.hero, required this.onTap, required this.onDelete});
+
+  final domain.Hero hero;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onSetup,
+      onTap: onTap,
+      onLongPress: onDelete,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-        padding: const EdgeInsets.all(20),
+        width: 140,
         decoration: BoxDecoration(
-          color: AppColors.primary.withAlpha(20),
-          border: Border.all(color: AppColors.primary.withAlpha(80)),
-          borderRadius: BorderRadius.circular(20),
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.borderSubtle),
         ),
-        child: const Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('🧒', style: TextStyle(fontSize: 40)),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Create your first hero',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 16)),
-                  SizedBox(height: 4),
-                  Text('Set up your child\'s character to start generating personalised stories.',
-                      style: TextStyle(fontSize: 13, color: Colors.black54)),
-                ],
+            Container(
+              width: 72,
+              height: 72,
+              margin: const EdgeInsets.only(top: 16),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.gold500, width: 2),
+              ),
+              child: ClipOval(
+                child: hero.heroAnchorThumbUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: hero.heroAnchorThumbUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) =>
+                            Container(color: AppColors.bgElevated),
+                        errorWidget: (_, __, ___) => const Icon(
+                            Icons.person,
+                            color: AppColors.textTertiary,
+                            size: 32),
+                      )
+                    : const Icon(Icons.person,
+                        color: AppColors.textTertiary, size: 32),
               ),
             ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.primary),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                hero.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodySm(color: AppColors.textPrimary),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.gold500,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  'Adventure →',
+                  style: AppTextStyles.bodyXs(color: AppColors.bgBase),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.05, duration: 300.ms);
+  }
+}
+
+class _AddHeroCard extends StatelessWidget {
+  const _AddHeroCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 120,
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+              color: AppColors.gold500.withAlpha(80), style: BorderStyle.solid),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.gold500.withAlpha(30),
+              ),
+              child: const Icon(Icons.add, color: AppColors.gold500, size: 24),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Add hero',
+              style: AppTextStyles.bodySm(color: AppColors.textSecondary),
+            ),
           ],
         ),
       ),
@@ -260,8 +449,84 @@ class _NoHeroBanner extends StatelessWidget {
   }
 }
 
-class _StoryCard extends StatelessWidget {
-  const _StoryCard({
+class _HeroCarouselSkeleton extends StatelessWidget {
+  const _HeroCarouselSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 180,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        scrollDirection: Axis.horizontal,
+        itemCount: 2,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, __) => Container(
+          width: 140,
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ).animate(onPlay: (c) => c.repeat()).shimmer(
+            duration: 1200.ms, color: AppColors.bgElevated),
+      ),
+    );
+  }
+}
+
+// ── Story thumbnail (horizontal scroll) ──────────────────────────────────────
+
+class _StoryThumbnail extends StatelessWidget {
+  const _StoryThumbnail({required this.story, required this.onTap});
+  final Story story;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final coverUrl = story.pages
+        .map((p) => p.imageUrl)
+        .firstWhere((url) => url.isNotEmpty, orElse: () => '');
+
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 140,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: coverUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: coverUrl,
+                      width: 140,
+                      height: 168,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        width: 140, height: 168, color: AppColors.bgCard,
+                      ),
+                      errorWidget: (_, __, ___) => _CoverPlaceholder(),
+                    )
+                  : _CoverPlaceholder(),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              story.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.bodySm(color: AppColors.textPrimary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Story grid card (library) ─────────────────────────────────────────────────
+
+class _StoryGridCard extends StatelessWidget {
+  const _StoryGridCard({
     required this.story,
     required this.index,
     required this.onTap,
@@ -275,116 +540,104 @@ class _StoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final coverPage = story.pages.isNotEmpty ? story.pages.first : null;
+    final coverUrl = story.pages
+        .map((p) => p.imageUrl)
+        .firstWhere((url) => url.isNotEmpty, orElse: () => '');
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(13),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.borderSubtle),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cover image
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.horizontal(left: Radius.circular(16)),
-              child: coverPage != null && coverPage.imageUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: coverPage.imageUrl,
-                      width: 90,
-                      height: 90,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) =>
-                          Container(width: 90, height: 90, color: const Color(0xFFEDE7F6)),
-                      errorWidget: (_, __, ___) =>
-                          _PlaceholderCover(),
-                    )
-                  : _PlaceholderCover(),
-            ),
-            // Info
+            // Cover
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Text(
-                      story.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 15),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(Icons.menu_book_outlined,
-                            size: 13, color: Colors.black45),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${story.pages.length} pages',
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.black45),
-                        ),
-                        if (story.readCount > 0) ...[
-                          const SizedBox(width: 10),
-                          const Icon(Icons.visibility_outlined,
-                              size: 13, color: Colors.black45),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${story.readCount}×',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.black45),
+                    coverUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: coverUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(color: AppColors.bgElevated),
+                            errorWidget: (_, __, ___) => _CoverPlaceholder(),
+                          )
+                        : _CoverPlaceholder(),
+                    // Favourite heart
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: onFavourite,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.bgBase.withAlpha(180),
+                            shape: BoxShape.circle,
                           ),
-                        ],
-                      ],
+                          child: Icon(
+                            story.favorite ? Icons.favorite : Icons.favorite_border,
+                            color: story.favorite ? AppColors.gold500 : AppColors.textTertiary,
+                            size: 16,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-            // Favourite button
-            IconButton(
-              icon: Icon(
-                story.favorite ? Icons.favorite : Icons.favorite_border,
-                color: story.favorite ? Colors.redAccent : Colors.black26,
-                size: 20,
+            // Info
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    story.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodySm(color: AppColors.textPrimary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${story.pages.length} pages',
+                    style: AppTextStyles.bodyXs(color: AppColors.textTertiary),
+                  ),
+                ],
               ),
-              onPressed: onFavourite,
             ),
           ],
         ),
       )
-          .animate(delay: Duration(milliseconds: index * 60))
+          .animate(delay: Duration(milliseconds: index * 50))
           .fadeIn(duration: 300.ms)
-          .slideY(begin: 0.08, duration: 300.ms),
+          .slideY(begin: 0.06, duration: 300.ms),
     );
   }
 }
 
-class _PlaceholderCover extends StatelessWidget {
+class _CoverPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 90,
-      height: 90,
-      color: const Color(0xFFEDE7F6),
+      color: AppColors.bgElevated,
       child: const Center(
         child: Text('📖', style: TextStyle(fontSize: 32)),
       ),
     );
   }
 }
+
+// ── Empty state ───────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
@@ -400,17 +653,17 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isFavoriteFilter) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('💛', style: TextStyle(fontSize: 48)),
-            SizedBox(height: 16),
+            const Text('💛', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 16),
             Text('No favourites yet',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            SizedBox(height: 8),
+                style: AppTextStyles.displaySm(color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
             Text('Tap the heart on a story to save it here.',
-                style: TextStyle(color: Colors.black45)),
+                style: AppTextStyles.bodyMd(color: AppColors.textTertiary)),
           ],
         ),
       );
@@ -422,27 +675,23 @@ class _EmptyState extends StatelessWidget {
         children: [
           const Text('🌙', style: TextStyle(fontSize: 56)),
           const SizedBox(height: 20),
-          const Text(
-            'No stories yet',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          Text(
+            'Your adventures begin tonight',
+            style: AppTextStyles.displaySm(color: AppColors.textPrimary),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Create your first adventure\nand watch the magic happen.',
+          Text(
+            "Tap Tonight's Adventure to create your first story.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black45, height: 1.5),
+            style: AppTextStyles.bodyMd(color: AppColors.textTertiary),
           ),
           const SizedBox(height: 28),
-          FilledButton(
-            onPressed: onAction,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-            ),
-            child: Text(
-              hasHero ? 'Start an adventure' : 'Create a hero',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+          SizedBox(
+            width: 200,
+            child: FilledButton(
+              onPressed: onAction,
+              child: Text(hasHero ? 'Start now' : 'Create a hero'),
             ),
           ),
         ],
@@ -451,12 +700,10 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+// ── Filter pill ────────────────────────────────────────────────────────────────
+
+class _FilterPill extends StatelessWidget {
+  const _FilterPill({required this.label, required this.selected, required this.onTap});
 
   final String label;
   final bool selected;
@@ -468,20 +715,99 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.transparent,
+          color: selected ? AppColors.gold500 : Colors.transparent,
           border: Border.all(
-            color: selected ? AppColors.primary : Colors.black26,
+            color: selected ? AppColors.gold500 : AppColors.borderDefault,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.black54,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+          style: AppTextStyles.bodySm(
+              color: selected ? AppColors.bgBase : AppColors.textTertiary),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Bottom tab bar §3.10 ──────────────────────────────────────────────────────
+
+class _BottomTabBar extends StatelessWidget {
+  const _BottomTabBar({required this.currentIndex, required this.onTap});
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56 + MediaQuery.of(context).padding.bottom,
+      decoration: BoxDecoration(
+        color: AppColors.bgBase.withAlpha(230),
+        border: const Border(
+          top: BorderSide(color: AppColors.borderSubtle),
+        ),
+      ),
+      child: Row(
+        children: [
+          _TabItem(
+            icon: Icons.nightlight_round,
+            label: 'TONIGHT',
+            selected: currentIndex == 0,
+            onTap: () => onTap(0),
+          ),
+          _TabItem(
+            icon: Icons.menu_book_outlined,
+            label: 'LIBRARY',
+            selected: currentIndex == 1,
+            onTap: () => onTap(1),
+          ),
+          _TabItem(
+            icon: Icons.settings_outlined,
+            label: 'SETTINGS',
+            selected: currentIndex == 2,
+            onTap: () => onTap(2),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabItem extends StatelessWidget {
+  const _TabItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.gold500 : AppColors.textTertiary;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 22, color: color),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: AppTextStyles.eyebrowXs(color: color),
+              ),
+            ],
           ),
         ),
       ),
@@ -489,45 +815,32 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-// Fallback offline list when Firestore stream errors
-class _OfflineList extends StatelessWidget {
-  const _OfflineList({required this.filter});
-  final String filter;
+// ── Offline fallback ──────────────────────────────────────────────────────────
 
+class _OfflineSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    var stories = storyCache.getAll();
-    if (filter == 'favorite') stories = stories.where((s) => s.favorite).toList();
-
-    if (stories.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(40),
-        child: Center(
-          child: Text(
-            'No cached stories available offline.',
-            style: TextStyle(color: Colors.black45),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
+    final stories = storyCache.getAll();
+    if (stories.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
           child: Row(
             children: [
-              Icon(Icons.wifi_off, size: 14, color: Colors.black45),
-              SizedBox(width: 6),
-              Text('Offline — showing cached stories',
-                  style: TextStyle(fontSize: 12, color: Colors.black45)),
+              const Icon(Icons.wifi_off, size: 13, color: AppColors.textTertiary),
+              const SizedBox(width: 6),
+              Text(
+                'Offline — cached stories',
+                style: AppTextStyles.bodyXs(color: AppColors.textTertiary),
+              ),
             ],
           ),
         ),
         ...stories.map(
-          (s) => _StoryCard(
+          (s) => _StoryGridCard(
             story: s,
             index: 0,
             onTap: () => context.push('/story/reader/${s.storyId}'),
