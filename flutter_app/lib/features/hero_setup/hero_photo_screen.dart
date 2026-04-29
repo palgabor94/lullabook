@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/lullabook_colors.dart';
+import '../../core/theme/lullabook_typography.dart';
 import '../../data/repositories/hero_repository.dart';
 import '../../domain/entities/hero.dart';
 
@@ -66,78 +68,182 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
   @override
   Widget build(BuildContext context) {
     final name = widget.heroData['name'] as String;
+    final hasPhoto = _photo != null;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text("$name's photo"),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const BackButton(),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Text(
-              'Add a clear photo of $name\'s face.\nThis becomes their hero image!',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
-            ),
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: () => _pick(ImageSource.gallery),
-              child: Container(
-                width: double.infinity,
-                height: 260,
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.primary.withAlpha(80), width: 2),
-                  borderRadius: BorderRadius.circular(20),
-                  color: AppColors.primary.withAlpha(10),
-                ),
-                child: _photo != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Image.file(_photo!, fit: BoxFit.cover),
-                      )
-                    : const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_a_photo_outlined, size: 48, color: AppColors.primary),
-                          SizedBox(height: 12),
-                          Text('Tap to choose from gallery',
-                              style: TextStyle(color: AppColors.primary)),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: () => _pick(ImageSource.camera),
-              icon: const Icon(Icons.camera_alt_outlined),
-              label: const Text('Take a photo'),
-            ),
-            const Spacer(),
-            if (_loading)
-              const Column(
+      backgroundColor: AppColors.bgBase,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+
+              // Top bar: back + progress dashes (step 3 of 3, all gold)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 12),
-                  Text('Creating hero… ~40 seconds',
-                      style: TextStyle(color: AppColors.textSecondary)),
+                  const BackButton(color: AppColors.textSecondary),
+                  Row(
+                    children: List.generate(3, (i) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      width: 24,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: LullabookColors.gold500,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    )),
+                  ),
+                  const SizedBox(width: 36),
                 ],
-              )
-            else
-              FilledButton(
-                onPressed: _photo != null ? _generate : null,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 52),
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: const Text('Create hero!',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
-            const SizedBox(height: 32),
-          ],
+
+              const SizedBox(height: 24),
+
+              // Eyebrow + title + subtitle
+              const Text(
+                'STEP 3 OF 3 · UPLOAD PHOTO',
+                style: LullabookTypography.eyebrowMd,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'A clear photo of\n$name',
+                style: LullabookTypography.displayXl,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Front-facing with good lighting works best. '
+                'Original is deleted within 24 hours.',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  height: 1.5,
+                  color: LullabookColors.textTertiary,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Upload zone
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _pick(ImageSource.gallery),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: AppColors.gold500.withAlpha(100), // ~40% opacity, softer
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      color: const Color(0x0AFFFFFF), // 4% white
+                    ),
+                    child: _photo != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.file(_photo!, fit: BoxFit.cover),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Camera icon in a gold-tint container
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: LullabookColors.goldTint15,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_outlined,
+                                  color: AppColors.gold500,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Add a photo',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'A clear photo of your child works best',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  color: LullabookColors.textTertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Camera shortcut
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => _pick(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt_outlined,
+                      color: AppColors.textTertiary),
+                  label: const Text(
+                    'Take a photo',
+                    style: TextStyle(color: AppColors.textTertiary),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Loading or CTA
+              if (_loading)
+                const Column(
+                  children: [
+                    CircularProgressIndicator(color: AppColors.gold500),
+                    SizedBox(height: 12),
+                    Text(
+                      'Creating hero… ~40 seconds',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: FilledButton(
+                    onPressed: hasPhoto ? _generate : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.textPrimary,
+                      foregroundColor: AppColors.bgBase,
+                      disabledBackgroundColor: const Color(0x1AFFFFFF),
+                      disabledForegroundColor: AppColors.textDisabled,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Create hero!',
+                      style: LullabookTypography.labelButton.copyWith(
+                        color: hasPhoto ? AppColors.bgBase : AppColors.textDisabled,
+                      ),
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );
