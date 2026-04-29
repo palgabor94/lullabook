@@ -809,6 +809,7 @@ class _BuddyTileShell extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Stack(
+        fit: StackFit.expand,
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -1088,6 +1089,7 @@ class _AdventureTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Stack(
+        fit: StackFit.expand,
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
