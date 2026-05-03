@@ -1,6 +1,5 @@
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { StoryDoc, StoryPage, GenerationMetadata } from '../../domain/entities/Story';
-import { v4 as uuidv4 } from 'uuid';
+import { StoryDoc, StoryPage, GenerationMetadata, AdventureSetup } from '../../domain/entities/Story';
 
 export class StoryRepository {
   private db = getFirestore();
@@ -9,24 +8,62 @@ export class StoryRepository {
     return this.db.collection('users').doc(uid).collection('stories');
   }
 
-  async create(
+  // Step 1: create a minimal stub so Flutter can subscribe before generation completes
+  async initPending(
     uid: string,
-    data: Omit<StoryDoc, 'storyId' | 'readCount' | 'lastReadAt' | 'favorite' | 'createdAt'>
-  ): Promise<StoryDoc> {
-    const storyId = uuidv4();
-
-    const doc: StoryDoc = {
+    storyId: string,
+    data: { heroId: string; title: string; language: string; setup: AdventureSetup }
+  ): Promise<void> {
+    await this.col(uid).doc(storyId).set({
       storyId,
       heroId: data.heroId,
       title: data.title,
       language: data.language,
       setup: data.setup,
-      pages: data.pages,
-      durationSeconds: data.durationSeconds,
+      status: 'cover_generating',
+      coverImageUrl: '',
+      coverCaption: '',
+      pages: [],
+      durationSeconds: 0,
       readCount: 0,
       lastReadAt: null,
       favorite: false,
-      generationMetadata: data.generationMetadata,
+      generationMetadata: null,
+      createdAt: Timestamp.now(),
+    });
+  }
+
+  // Step 2: cover image is ready — Flutter shows it while pages generate
+  async updateCoverReady(
+    uid: string,
+    storyId: string,
+    coverImageUrl: string,
+    coverCaption: string
+  ): Promise<void> {
+    await this.col(uid).doc(storyId).update({
+      status: 'cover_ready',
+      coverImageUrl,
+      coverCaption,
+    });
+  }
+
+  // Step 2 error path: cover failed, pages will still generate
+  async updateCoverError(uid: string, storyId: string): Promise<void> {
+    await this.col(uid).doc(storyId).update({ status: 'cover_error' });
+  }
+
+  // Step 3: finalize — all pages and audio are ready
+  async finalize(
+    uid: string,
+    storyId: string,
+    data: Omit<StoryDoc, 'storyId' | 'readCount' | 'lastReadAt' | 'favorite' | 'createdAt'>
+  ): Promise<StoryDoc> {
+    const doc: StoryDoc = {
+      storyId,
+      ...data,
+      readCount: 0,
+      lastReadAt: null,
+      favorite: false,
       createdAt: Timestamp.now(),
     };
 

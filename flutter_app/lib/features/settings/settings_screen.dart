@@ -2,8 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/providers/debug_settings_provider.dart';
+import '../../core/providers/language_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -22,16 +24,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
     final isPremiumAsync = ref.watch(isPremiumProvider);
     final isPremium = isPremiumAsync.valueOrNull ?? false;
+    final currentLocale = ref.watch(languageProvider);
+    final langSubtitle = currentLocale.languageCode == 'hu'
+        ? l10n.settingsLanguageHungarian
+        : l10n.settingsLanguageEnglish;
 
     return Scaffold(
       backgroundColor: AppColors.bgBase,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // Title §4.16
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 12, 24, 8),
@@ -43,7 +49,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onPressed: () => context.pop(),
                     ),
                     Text(
-                      'Settings',
+                      l10n.settingsTitle,
                       style: AppTextStyles.displayMd(color: AppColors.textPrimary),
                     ),
                   ],
@@ -57,11 +63,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 delegate: SliverChildListDelegate([
 
                   // ── Account ────────────────────────────────────────────
-                  const _SectionHeader('ACCOUNT'),
+                  _SectionHeader(l10n.settingsSectionAccount),
                   _SettingsTile(
                     icon: Icons.person_outline,
-                    title: user?.email ?? 'Signed in',
-                    subtitle: isPremium ? 'Premium subscriber' : 'Free plan',
+                    title: user?.email ?? l10n.settingsSignedInFallback,
+                    subtitle: isPremium ? l10n.settingsPremiumLabel : l10n.settingsFreePlan,
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -69,7 +75,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        isPremium ? 'PREMIUM' : 'FREE',
+                        isPremium ? l10n.settingsPremiumBadge : l10n.settingsFreeBadge,
                         style: const TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w600,
@@ -82,14 +88,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   _SettingsTile(
                     icon: Icons.star_outline,
-                    title: 'Manage subscription',
+                    title: l10n.settingsManageSubscription,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () => context.push('/paywall'),
                   ),
                   _SettingsTile(
                     icon: Icons.restore,
-                    title: 'Restore purchases',
+                    title: l10n.settingsRestorePurchases,
                     trailing: _restoringPurchases
                         ? const SizedBox(
                             width: 18,
@@ -104,24 +110,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // ── Story preferences ──────────────────────────────────
-                  const _SectionHeader('STORY PREFERENCES'),
+                  _SectionHeader(l10n.settingsSectionStoryPrefs),
                   _SettingsTile(
                     icon: Icons.language,
-                    title: 'Story language',
+                    title: l10n.settingsStoryLanguage,
+                    subtitle: langSubtitle,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
-                    onTap: () {},
+                    onTap: () => _showLanguagePicker(context),
                   ),
                   _SettingsTile(
                     icon: Icons.palette_outlined,
-                    title: 'Default art style',
+                    title: l10n.settingsDefaultArtStyle,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () {},
                   ),
                   _SettingsTile(
                     icon: Icons.record_voice_over_outlined,
-                    title: 'Narration voice',
+                    title: l10n.settingsNarrationVoice,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () {},
@@ -130,22 +137,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // ── Reader ─────────────────────────────────────────────
-                  const _SectionHeader('READER'),
+                  _SectionHeader(l10n.settingsSectionReader),
                   _ToggleTile(
                     icon: Icons.play_circle_outline,
-                    title: 'Auto-play narration',
+                    title: l10n.settingsAutoPlay,
                     value: true,
                     onChanged: (_) {},
                   ),
                   _ToggleTile(
                     icon: Icons.bedtime_outlined,
-                    title: 'Sleep mode',
+                    title: l10n.settingsSleepMode,
                     value: true,
                     onChanged: (_) {},
                   ),
                   _ToggleTile(
                     icon: Icons.music_note_outlined,
-                    title: 'Background music',
+                    title: l10n.settingsBackgroundMusic,
                     value: false,
                     onChanged: (_) {},
                   ),
@@ -153,18 +160,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // ── App ────────────────────────────────────────────────
-                  const _SectionHeader('APP'),
+                  _SectionHeader(l10n.settingsSectionApp),
                   _SettingsTile(
                     icon: Icons.dark_mode_outlined,
-                    title: 'Theme',
-                    subtitle: 'Dark',
+                    title: l10n.settingsTheme,
+                    subtitle: l10n.settingsThemeDark,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () {},
                   ),
                   _ToggleTile(
                     icon: Icons.notifications_outlined,
-                    title: 'Bedtime reminder',
+                    title: l10n.settingsBedtimeReminder,
                     value: false,
                     onChanged: (_) {},
                   ),
@@ -172,24 +179,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // ── Support ────────────────────────────────────────────
-                  const _SectionHeader('SUPPORT'),
+                  _SectionHeader(l10n.settingsSectionSupport),
                   _SettingsTile(
                     icon: Icons.help_outline,
-                    title: 'Help center',
+                    title: l10n.settingsHelpCenter,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () {},
                   ),
                   _SettingsTile(
                     icon: Icons.mail_outline,
-                    title: 'Contact us',
+                    title: l10n.settingsContactUs,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () {},
                   ),
                   _SettingsTile(
                     icon: Icons.star_rate_outlined,
-                    title: 'Rate Lullabook',
+                    title: l10n.settingsRateApp,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () {},
@@ -198,17 +205,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // ── Legal ──────────────────────────────────────────────
-                  const _SectionHeader('LEGAL'),
+                  _SectionHeader(l10n.settingsSectionLegal),
                   _SettingsTile(
                     icon: Icons.description_outlined,
-                    title: 'Terms of Service',
+                    title: l10n.settingsTerms,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () {},
                   ),
                   _SettingsTile(
                     icon: Icons.privacy_tip_outlined,
-                    title: 'Privacy Policy',
+                    title: l10n.settingsPrivacy,
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.textTertiary),
                     onTap: () {},
@@ -217,15 +224,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // ── Account actions ────────────────────────────────────
-                  const _SectionHeader('ACCOUNT ACTIONS'),
+                  _SectionHeader(l10n.settingsSectionAccountActions),
                   _SettingsTile(
                     icon: Icons.logout,
-                    title: 'Sign out',
+                    title: l10n.settingsSignOut,
                     onTap: _signOut,
                   ),
                   _SettingsTile(
                     icon: Icons.delete_outline,
-                    title: 'Delete account',
+                    title: l10n.settingsDeleteAccount,
                     titleColor: AppColors.error,
                     iconColor: AppColors.error,
                     onTap: _confirmDeleteAccount,
@@ -234,17 +241,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // ── Developer ──────────────────────────────────────────
-                  const _SectionHeader('DEVELOPER'),
+                  _SectionHeader(l10n.settingsSectionDeveloper),
                   _ToggleTile(
                     icon: Icons.science_outlined,
-                    title: 'Debug mode',
+                    title: l10n.settingsDebugMode,
                     value: ref.watch(debugModeProvider),
                     onChanged: (v) =>
                         ref.read(debugModeProvider.notifier).setDebugMode(v),
                   ),
                   _SettingsTile(
                     icon: Icons.play_circle_outline,
-                    title: 'Generate test story',
+                    title: l10n.settingsGenerateTestStory,
                     titleColor: AppColors.gold700,
                     iconColor: AppColors.gold700,
                     trailing: const Icon(Icons.arrow_forward_ios,
@@ -256,7 +263,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   Center(
                     child: Text(
-                      'Lullabook · v1.0',
+                      l10n.settingsFooter,
                       style: AppTextStyles.bodyXs(color: AppColors.textFaint),
                     ),
                   ),
@@ -269,18 +276,60 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _showLanguagePicker(BuildContext ctx) {
+    final current = ref.read(languageProvider);
+    showModalBottomSheet<void>(
+      context: ctx,
+      backgroundColor: AppColors.bgElevated,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.borderSubtle,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final locale in supportedLocales)
+            ListTile(
+              title: Text(
+                languageNames[locale.languageCode]!,
+                style: AppTextStyles.bodyLg(color: AppColors.textPrimary),
+              ),
+              trailing: locale == current
+                  ? const Icon(Icons.check, color: AppColors.gold500)
+                  : null,
+              onTap: () {
+                ref.read(languageProvider.notifier).setLocale(locale);
+                Navigator.pop(ctx);
+              },
+            ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
   Future<void> _restorePurchases() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _restoringPurchases = true);
     try {
       await ref.read(revenueCatRepositoryProvider).restorePurchases();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Purchases restored')),
+        SnackBar(content: Text(l10n.settingsPurchasesRestored)),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nothing to restore')),
+        SnackBar(content: Text(l10n.settingsNothingToRestore)),
       );
     } finally {
       if (mounted) setState(() => _restoringPurchases = false);
@@ -294,32 +343,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _confirmDeleteAccount() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgElevated,
-        title: const Text('Delete account?',
-            style: TextStyle(color: AppColors.textPrimary)),
-        content: const Text(
-          'This will permanently delete your account, heroes, and all stories. This cannot be undone.',
-          style: TextStyle(color: AppColors.textSecondary),
+        title: Text(l10n.settingsDeleteAccountTitle,
+            style: const TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          l10n.settingsDeleteAccountMessage,
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(l10n.settingsDeleteAccountCancel,
+                style: const TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.error)),
+            child: Text(l10n.settingsDeleteAccountConfirm,
+                style: const TextStyle(color: AppColors.error)),
           ),
         ],
       ),
     );
 
     if (confirmed != true || !mounted) return;
+    final l10nAfter = AppLocalizations.of(context)!;
     try {
       await ref.read(authRepositoryProvider).signOut();
       if (!mounted) return;
@@ -327,7 +378,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not delete account. Contact support.')),
+        SnackBar(content: Text(l10nAfter.settingsDeleteError)),
       );
     }
   }

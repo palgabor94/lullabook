@@ -12,7 +12,7 @@ export class ContentModerator {
   private client: OpenAI;
 
   constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({ apiKey, fetch: globalThis.fetch });
   }
 
   async assertSafe(text: string): Promise<void> {
@@ -27,12 +27,20 @@ export class ContentModerator {
     const response = await this.client.moderations.create({ input: text });
     const result = response.results[0];
 
-    if (result.flagged) {
-      const flaggedCategories = Object.entries(result.categories)
-        .filter(([, flagged]) => flagged)
-        .map(([cat]) => cat)
-        .join(', ');
-      throw new Error(`content_flagged: ${flaggedCategories}`);
+    // Children's stories naturally contain mild conflict (dragons, villains, chases).
+    // Use score thresholds instead of the binary flag to avoid false positives.
+    const THRESHOLDS: Record<string, number> = {
+      'violence':           0.85, // high threshold — adventure/conflict is normal
+      'violence/graphic':   0.50, // graphic violence still blocked at lower threshold
+    };
+    const DEFAULT_THRESHOLD = 0.50;
+
+    const blocked = Object.entries(result.category_scores)
+      .filter(([cat, score]) => score > (THRESHOLDS[cat] ?? DEFAULT_THRESHOLD))
+      .map(([cat]) => cat);
+
+    if (blocked.length > 0) {
+      throw new Error(`content_flagged: ${blocked.join(', ')}`);
     }
   }
 }

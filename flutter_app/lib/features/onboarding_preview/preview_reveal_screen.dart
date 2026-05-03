@@ -1,7 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/preview_repository.dart';
@@ -15,13 +17,24 @@ class PreviewRevealScreen extends ConsumerStatefulWidget {
 }
 
 class _PreviewRevealScreenState extends ConsumerState<PreviewRevealScreen> {
-  Future<void> _startAdventure() async {
-    // Not signed in yet — go to auth with previewId in extras
-    context.go('/auth', extra: {'previewId': widget.result.previewId});
+  void _startAdventure() {
+    if (FirebaseAuth.instance.currentUser != null) {
+      context.go('/hero/setup', extra: {
+        'childName': widget.result.childName,
+        'artStyle': widget.result.artStyle,
+        'previewId': widget.result.previewId,
+      });
+    } else {
+      context.go('/auth', extra: {
+        'previewId': widget.result.previewId,
+        'previewResult': widget.result,
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final result = widget.result;
 
     return Scaffold(
@@ -31,7 +44,7 @@ class _PreviewRevealScreenState extends ConsumerState<PreviewRevealScreen> {
           children: [
             const SizedBox(height: 24),
             Text(
-              "Meet ${result.childName}!",
+              l10n.revealTitle(result.childName),
               style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -85,7 +98,9 @@ class _PreviewRevealScreenState extends ConsumerState<PreviewRevealScreen> {
                   ),
                 ),
                 child: Text(
-                  "Start ${result.childName}'s adventure!",
+                  FirebaseAuth.instance.currentUser != null
+                      ? l10n.revealContinue
+                      : l10n.revealStartAdventure(result.childName),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,

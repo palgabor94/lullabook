@@ -15,19 +15,22 @@ class GeneratePreviewResult {
     required this.imageUrl,
     required this.openingText,
     required this.childName,
+    required this.artStyle,
   });
 
   final String previewId;
   final String imageUrl;
   final String openingText;
   final String childName;
+  final String artStyle;
 
-  factory GeneratePreviewResult.fromMap(Map<String, dynamic> map) {
+  factory GeneratePreviewResult.fromMap(Map<String, dynamic> map, {required String artStyle}) {
     return GeneratePreviewResult(
       previewId: map['previewId'] as String,
       imageUrl: map['imageUrl'] as String,
       openingText: map['openingText'] as String,
       childName: map['childName'] as String,
+      artStyle: artStyle,
     );
   }
 }
@@ -80,6 +83,7 @@ class PreviewRepository {
 
     return GeneratePreviewResult.fromMap(
       Map<String, dynamic>.from(result.data as Map),
+      artStyle: artStyle,
     );
   }
 

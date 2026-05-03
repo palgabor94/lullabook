@@ -51,4 +51,8 @@ export class HeroRepository {
     const snap = await this.col(uid).orderBy('createdAt', 'desc').get();
     return snap.docs.map((d) => d.data() as HeroDoc);
   }
+
+  async delete(uid: string, heroId: string): Promise<void> {
+    await this.col(uid).doc(heroId).delete();
+  }
 }

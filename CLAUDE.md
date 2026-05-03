@@ -1,3 +1,82 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+## Development commands
+
+### Flutter app (`flutter_app/`)
+```bash
+flutter pub get                                      # install deps
+dart run build_runner build --delete-conflicting-outputs  # codegen (Freezed, Riverpod, Isar)
+flutter run                                          # run on connected device
+flutter test                                         # run all tests
+flutter test test/path/to/test_file.dart             # run single test file
+flutter analyze                                      # lint
+```
+
+### Cloud Functions (`functions/`)
+```bash
+npm install
+npm run build          # tsc compile
+npm run build:watch    # watch mode during development
+npm run lint           # eslint
+npm test               # jest (unit tests)
+npm run serve          # build + start emulators (functions only)
+firebase deploy --only functions   # deploy all functions
+firebase deploy --only functions:generateStory  # deploy single function
+```
+
+### TypeScript type-check only (no emit)
+```bash
+# From functions/
+~/.nvm/versions/node/v20.19.2/bin/node ./node_modules/.bin/tsc --noEmit
+```
+
+### Firebase emulators (full stack)
+```bash
+firebase emulators:start --only auth,firestore,storage,functions
+```
+
+---
+
+## Architecture overview
+
+Two workspaces: `flutter_app/` (Flutter/Dart client) and `functions/` (Node.js 20 TypeScript Cloud Functions).
+
+### Key data flow: story generation
+1. Flutter calls `generateStory` (Firebase Callable) with a **pre-generated UUID** `storyId`.
+2. Flutter immediately subscribes to `users/{uid}/stories/{storyId}` via Firestore real-time listener.
+3. Cloud Function writes progress to the story doc: `cover_generating → cover_ready → complete`.
+4. When `cover_ready`: Flutter shows the cover image while pages generate (~40 s).
+5. When `complete`: Flutter navigates to the story reader.
+6. The callable itself also returns `{ storyId }` as a navigation fallback.
+
+### Cloud Functions domain structure (`functions/src/`)
+- **`handlers/`** — HTTP/callable entry points; thin wrappers that validate, check caps, and delegate.
+- **`domain/services/StoryOrchestrator.ts`** — Core pipeline: GPT → moderation → cover image → 8 page images (parallel) → TTS → upload → Firestore.
+- **`infrastructure/ai/`** — `RunningHubClient` (async submit+poll, ~40 s/image), `GptStoryWriter`, `ElevenLabsTts`, `ContentModerator`.
+- **`infrastructure/firestore/`** — Repository classes (one per collection).
+- All AI API keys are backend-only secrets; the Flutter client never sees them.
+
+### Flutter app structure (`flutter_app/lib/`)
+- **State management**: Riverpod 2.x with code generation (`@riverpod` annotations). Run `build_runner` after any `@riverpod` change.
+- **Routing**: `go_router` in `core/router/app_router.dart`.
+- **Offline cache**: Isar for story data; write-through on `watchAll()`.
+- **Repositories** in `data/repositories/` wrap Cloud Functions callables and Firestore streams. Features import only repositories, never Firestore/Functions directly.
+
+### Image generation (RunningHub)
+- Async submit-then-poll pattern (2.5 s poll interval, 120 s timeout).
+- Each story generates a **cover image first** (all characters together, used as consistency reference), then 8 page images in parallel — each with up to 3 references: cover + hero anchor + original child photo (if within 24 h window).
+- 3 retry attempts per image before marking failed.
+
+### Subscriptions
+- RevenueCat is the source of truth. Firestore `users/{uid}.subscription` is a webhook-synced cache.
+- `DailyCapManager` reads from Firestore (not RevenueCat SDK) at generation time.
+
+---
+
 # Lullabook — Technical Specification & Developer Handbook
 
 > Version: 1.0 — initial spec

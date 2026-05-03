@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/story_repository.dart';
@@ -22,14 +23,18 @@ class StoryReaderScreen extends ConsumerStatefulWidget {
 class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
   final PageController _pageController = PageController();
   final AudioPlayer _player = AudioPlayer();
+  StreamSubscription<PlayerState>? _playerSubscription;
+
   int _currentPage = 0;
   bool _isPlaying = false;
+  bool _audioFinished = false;
   bool _controlsVisible = false;
   bool _hasMarkedRead = false;
   Timer? _controlsTimer;
 
   @override
   void dispose() {
+    _playerSubscription?.cancel();
     _pageController.dispose();
     _player.dispose();
     _controlsTimer?.cancel();
@@ -45,36 +50,63 @@ class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
   }
 
   Future<void> _playPage(StoryPage page) async {
-    if (page.audioUrl.isEmpty) return;
+    _playerSubscription?.cancel();
+    _playerSubscription = null;
+
+    if (page.audioUrl.isEmpty) {
+      setState(() {
+        _isPlaying = false;
+        _audioFinished = true;
+      });
+      return;
+    }
+
+    setState(() {
+      _isPlaying = false;
+      _audioFinished = false;
+    });
+
     try {
       await _player.stop();
       await _player.setUrl(page.audioUrl);
-      await _player.play();
-      setState(() => _isPlaying = true);
-      _player.playerStateStream.listen((state) {
-        if (state.processingState == ProcessingState.completed && mounted) {
-          setState(() => _isPlaying = false);
-          // Auto-advance after 1.5s
-          Future.delayed(const Duration(milliseconds: 1500), () {
-            if (!mounted) return;
-            final pages = _pageController.page?.round() ?? _currentPage;
-            _pageController.nextPage(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOut,
-            );
-            if (pages >= 0) {}
+
+      // Listener setup BEFORE play() to avoid missing events.
+      // startedPlaying flag prevents the stale `completed` replay-event
+      // (BehaviorSubject replays last value to new subscribers) from
+      // immediately marking the page as finished before audio begins.
+      bool startedPlaying = false;
+      _playerSubscription = _player.playerStateStream.listen((state) {
+        if (!mounted) return;
+        if (state.playing && !startedPlaying) {
+          startedPlaying = true;
+          setState(() => _isPlaying = true);
+        }
+        if (startedPlaying && state.processingState == ProcessingState.completed) {
+          setState(() {
+            _isPlaying = false;
+            _audioFinished = true;
           });
         }
       });
-    } catch (_) {}
+
+      await _player.play();
+    } catch (_) {
+      if (mounted) setState(() => _audioFinished = true);
+    }
   }
 
-  Future<void> _togglePlay(StoryPage page) async {
-    if (_isPlaying) {
-      await _player.pause();
-      setState(() => _isPlaying = false);
+  Future<void> _replayPage(StoryPage page) async {
+    await _playPage(page);
+  }
+
+  void _goNextPage(List<StoryPage> pages) {
+    if (_currentPage < pages.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
     } else {
-      await _playPage(page);
+      context.go('/home');
     }
   }
 
@@ -82,6 +114,7 @@ class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
     setState(() {
       _currentPage = index;
       _isPlaying = false;
+      _audioFinished = false;
     });
     _player.stop();
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -109,6 +142,11 @@ class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
         if (story == null) return _errorScaffold(context);
         _markRead();
         final pages = story.pages;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_currentPage == 0 && !_isPlaying && !_audioFinished) {
+            _playPage(pages[0]);
+          }
+        });
 
         return Scaffold(
           backgroundColor: Colors.black,
@@ -116,42 +154,19 @@ class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
             onTap: _showControls,
             child: Stack(
               children: [
-                // Page view §4.12
                 PageView.builder(
                   controller: _pageController,
                   itemCount: pages.length,
                   onPageChanged: (i) => _onPageChanged(i, pages),
                   itemBuilder: (ctx, i) => _StoryPageView(
                     page: pages[i],
-                    isPlaying: _isPlaying && _currentPage == i,
-                    onTogglePlay: () => _togglePlay(pages[i]),
+                    audioFinished: _audioFinished && _currentPage == i,
+                    isLastPage: i == pages.length - 1,
+                    onNext: () => _goNextPage(pages),
+                    onAgain: () => _replayPage(pages[i]),
                   ),
                 ),
 
-                // Page indicator dots — bottom strip §4.12
-                Positioned(
-                  bottom: 16 + MediaQuery.of(context).padding.bottom,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(pages.length, (i) {
-                      final active = i == _currentPage;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: active ? 20 : 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: active ? AppColors.gold500 : AppColors.borderDefault,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-
-                // Controls overlay (auto-hide) §4.12
                 Positioned(
                   top: 0,
                   left: 0,
@@ -179,6 +194,7 @@ class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
   }
 
   Widget _errorScaffold(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.bgBase,
       body: Center(
@@ -187,13 +203,13 @@ class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
           children: [
             const Text('📖', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 16),
-            const Text('Could not load story',
-                style: TextStyle(color: AppColors.textSecondary)),
+            Text(l10n.readerErrorTitle,
+                style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 16),
             TextButton(
               onPressed: () => context.go('/home'),
-              child: const Text('Go back',
-                  style: TextStyle(color: AppColors.gold500)),
+              child: Text(l10n.readerErrorBack,
+                  style: const TextStyle(color: AppColors.gold500)),
             ),
           ],
         ),
@@ -202,25 +218,29 @@ class _StoryReaderScreenState extends ConsumerState<StoryReaderScreen> {
   }
 }
 
-// ── Story page §4.12: 65% illustration / 35% text ────────────────────────────
+// ── Story page: 65% illustration / 35% text ──────────────────────────────────
 
 class _StoryPageView extends StatelessWidget {
   const _StoryPageView({
     required this.page,
-    required this.isPlaying,
-    required this.onTogglePlay,
+    required this.audioFinished,
+    required this.isLastPage,
+    required this.onNext,
+    required this.onAgain,
   });
 
   final StoryPage page;
-  final bool isPlaying;
-  final VoidCallback onTogglePlay;
+  final bool audioFinished;
+  final bool isLastPage;
+  final VoidCallback onNext;
+  final VoidCallback onAgain;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Illustration — top 65% §4.12
         Column(
           children: [
             Expanded(
@@ -234,7 +254,6 @@ class _StoryPageView extends StatelessWidget {
           ],
         ),
 
-        // Text area — bottom 35% §4.12
         Positioned(
           left: 0,
           right: 0,
@@ -242,7 +261,7 @@ class _StoryPageView extends StatelessWidget {
           height: MediaQuery.of(context).size.height * 0.38,
           child: Container(
             color: AppColors.bgBase,
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 56),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -251,32 +270,82 @@ class _StoryPageView extends StatelessWidget {
                     child: _StoryText(text: page.text),
                   ),
                 ),
-                const SizedBox(height: 12),
-                // Play button
-                GestureDetector(
-                  onTap: onTogglePlay,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.borderDefault),
-                    ),
+                const SizedBox(height: 16),
+                AnimatedOpacity(
+                  opacity: audioFinished ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 400),
+                  child: IgnorePointer(
+                    ignoring: !audioFinished,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          isPlaying ? Icons.pause : Icons.play_arrow,
-                          color: AppColors.textPrimary,
-                          size: 20,
+                        // Again button
+                        GestureDetector(
+                          onTap: onAgain,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.bgCard,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: AppColors.borderDefault),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.replay,
+                                  color: AppColors.textPrimary,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  l10n.readerAgain,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          isPlaying ? 'Pause' : 'Listen',
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                        const SizedBox(width: 12),
+                        // Next / Finish button
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: onNext,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.gold500,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    isLastPage
+                                        ? l10n.readerFinish
+                                        : l10n.readerNext,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  if (!isLastPage) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.arrow_forward,
+                                      color: Colors.black,
+                                      size: 16,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -324,7 +393,6 @@ class _StoryText extends StatelessWidget {
 
   List<({String text, bool isDialogue})> _parse(String input) {
     final segments = <({String text, bool isDialogue})>[];
-    // matches both straight "..." and curly "..." dialogue quotes
     final regex = RegExp(r'"[^"]+"|"[^"]+"');
     int lastEnd = 0;
     for (final match in regex.allMatches(input)) {
@@ -384,6 +452,7 @@ class _ControlsOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
@@ -412,7 +481,7 @@ class _ControlsOverlay extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '${currentPage + 1} / $totalPages',
+              l10n.readerPageIndicator(currentPage + 1, totalPages),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 13,
@@ -433,4 +502,3 @@ class _ControlsOverlay extends StatelessWidget {
     );
   }
 }
-

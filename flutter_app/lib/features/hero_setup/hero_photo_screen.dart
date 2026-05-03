@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/lullabook_colors.dart';
@@ -67,6 +68,7 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final name = widget.heroData['name'] as String;
     final hasPhoto = _photo != null;
 
@@ -80,7 +82,6 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
             children: [
               const SizedBox(height: 16),
 
-              // Top bar: back + progress dashes (step 3 of 3, all gold)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -102,21 +103,19 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
 
               const SizedBox(height: 24),
 
-              // Eyebrow + title + subtitle
               Text(
-                'STEP 3 OF 3 · ${name.toUpperCase()}\'S PHOTO',
+                l10n.heroPhotoEyebrow(name),
                 style: LullabookTypography.eyebrowMd,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'A clear photo\nworks best',
+              Text(
+                l10n.heroPhotoTitle,
                 style: LullabookTypography.displayXl,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Front-facing with good lighting works best. '
-                'Original is deleted within 24 hours.',
-                style: TextStyle(
+              Text(
+                l10n.heroPhotoInstruction,
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   height: 1.5,
@@ -126,7 +125,6 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
 
               const SizedBox(height: 24),
 
-              // Upload zone
               Expanded(
                 child: GestureDetector(
                   onTap: () => _pick(ImageSource.gallery),
@@ -134,11 +132,11 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
                     width: double.infinity,
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: AppColors.gold500.withAlpha(100), // ~40% opacity, softer
+                        color: AppColors.gold500.withAlpha(100),
                         width: 1.5,
                       ),
                       borderRadius: BorderRadius.circular(20),
-                      color: const Color(0x0AFFFFFF), // 4% white
+                      color: const Color(0x0AFFFFFF),
                     ),
                     child: _photo != null
                         ? ClipRRect(
@@ -148,7 +146,6 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Camera icon in a gold-tint container
                               Container(
                                 width: 56,
                                 height: 56,
@@ -163,9 +160,9 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              const Text(
-                                'Add a photo',
-                                style: TextStyle(
+                              Text(
+                                l10n.heroPhotoAdd,
+                                style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
@@ -173,9 +170,9 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              const Text(
-                                'A clear photo of your child works best',
-                                style: TextStyle(
+                              Text(
+                                l10n.heroPhotoAddSubtitle,
+                                style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
                                   color: LullabookColors.textTertiary,
@@ -189,30 +186,28 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
 
               const SizedBox(height: 12),
 
-              // Camera shortcut
               Center(
                 child: TextButton.icon(
                   onPressed: () => _pick(ImageSource.camera),
                   icon: const Icon(Icons.camera_alt_outlined,
                       color: AppColors.textTertiary),
-                  label: const Text(
-                    'Take a photo',
-                    style: TextStyle(color: AppColors.textTertiary),
+                  label: Text(
+                    l10n.heroPhotoCameraButton,
+                    style: const TextStyle(color: AppColors.textTertiary),
                   ),
                 ),
               ),
 
               const SizedBox(height: 12),
 
-              // Loading or CTA
               if (_loading)
-                const Column(
+                Column(
                   children: [
-                    CircularProgressIndicator(color: AppColors.gold500),
-                    SizedBox(height: 12),
+                    const CircularProgressIndicator(color: AppColors.gold500),
+                    const SizedBox(height: 12),
                     Text(
-                      'Creating hero… ~40 seconds',
-                      style: TextStyle(color: AppColors.textSecondary),
+                      l10n.heroPhotoCreating,
+                      style: const TextStyle(color: AppColors.textSecondary),
                     ),
                   ],
                 )
@@ -233,7 +228,7 @@ class _HeroPhotoScreenState extends ConsumerState<HeroPhotoScreen> {
                       elevation: 0,
                     ),
                     child: Text(
-                      'Create hero!',
+                      l10n.heroPhotoCreateCta,
                       style: LullabookTypography.labelButton.copyWith(
                         color: hasPhoto ? AppColors.bgBase : AppColors.textDisabled,
                       ),

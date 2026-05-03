@@ -1,17 +1,19 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { defineSecret } from 'firebase-functions/params';
+import { defineSecret, defineString } from 'firebase-functions/params';
 
-import { RunningHubClient } from '../infrastructure/ai/RunningHubClient';
+import { createImageProvider } from '../infrastructure/ai/createImageProvider';
 import { AssetUploader } from '../infrastructure/storage/AssetUploader';
 import { HeroRepository } from '../infrastructure/firestore/HeroRepository';
 import { logger } from '../utils/logger';
 
 const RUNNINGHUB_KEY = defineSecret('RUNNINGHUB_API_KEY');
+const NANOBANANA_KEY = defineSecret('NANOBANANA_API_KEY');
+const IMAGE_PROVIDER = defineString('IMAGE_PROVIDER', { default: 'runninghub' });
 const MAX_REGENS = 2;
 
 export const regenerateHeroAnchor = onCall<{ heroId: string }>(
   {
-    secrets: [RUNNINGHUB_KEY],
+    secrets: [RUNNINGHUB_KEY, NANOBANANA_KEY],
     cors: true,
     memory: '1GiB',
     timeoutSeconds: 180,
@@ -34,13 +36,13 @@ export const regenerateHeroAnchor = onCall<{ heroId: string }>(
       );
     }
 
-    const runningHub = new RunningHubClient(RUNNINGHUB_KEY.value());
+    const runningHub = createImageProvider(IMAGE_PROVIDER.value(), RUNNINGHUB_KEY.value(), NANOBANANA_KEY.value());
     let generated;
     try {
       generated = await runningHub.generateScene({
-        scenePrompt: `${hero.name} stands ready for a magical adventure, smiling warmly`,
+        scenePrompt: `A child stands ready for a magical adventure, smiling warmly`,
         definingTraits: hero.definingTraits,
-        heroAnchorStoragePath: hero.heroAnchorStoragePath,
+        refStoragePath: hero.heroAnchorStoragePath,
       });
     } catch (err) {
       logger.error('hero_regen_failed', { uid, heroId, error: err });

@@ -1,5 +1,13 @@
 import { getStorage } from 'firebase-admin/storage';
 import { logger } from '../../utils/logger';
+import {
+  IImageProvider,
+  GeneratedImage,
+  HeroRevealInput,
+  SceneInput,
+  CoverImageInput,
+} from './IImageProvider';
+import { buildHeroRevealPrompt, buildScenePrompt, buildCoverPrompt } from './imagePrompts';
 
 interface SubmitResponse {
   taskId: string;
@@ -16,34 +24,7 @@ interface QueryResponse {
   results: Array<{ url: string; nodeId: string; outputType: string }> | null;
 }
 
-export interface GeneratedImage {
-  taskId: string;
-  imageBuffer: Buffer;
-  costUsd: number;
-}
-
-export interface HeroRevealInput {
-  artStyle: 'pixar_3d' | 'watercolor' | 'flat_modern' | 'storybook_classic';
-  openingSceneDescription: string;
-  definingTraits: string | null;
-  childPhotoStoragePath: string;
-}
-
-export interface SceneInput {
-  scenePrompt: string;
-  definingTraits: string;
-  heroAnchorStoragePath: string;
-  artStyle?: string;
-}
-
-const ART_STYLE_PROMPTS: Record<string, string> = {
-  pixar_3d: "warm 3D-rendered children's book illustration, Pixar-style, soft cinematic lighting, expressive features",
-  watercolor: "gentle watercolor children's book illustration, soft edges, pastel palette, traditional storybook aesthetic",
-  flat_modern: "contemporary flat-vector children's book illustration, bold colors, clean geometric shapes, modern picture book style",
-  storybook_classic: "detailed ink-and-wash children's book illustration, warm tones, classic heritage storybook style",
-};
-
-export class RunningHubClient {
+export class RunningHubClient implements IImageProvider {
   private editEndpoint = 'https://www.runninghub.ai/openapi/v2/rhart-image-v1/edit';
   private queryEndpoint = 'https://www.runninghub.ai/openapi/v2/query';
   private pollIntervalMs = 2500;
@@ -53,14 +34,29 @@ export class RunningHubClient {
 
   async generateHeroReveal(input: HeroRevealInput): Promise<GeneratedImage> {
     const photoUrl = await this.signedUrlFor(input.childPhotoStoragePath);
-    const prompt = this.buildHeroRevealPrompt(input);
+    logger.info('runninghub_hero_reveal_submit', {
+      storagePath: input.childPhotoStoragePath,
+      signedUrlPrefix: photoUrl.substring(0, 100),
+    });
+    const prompt = buildHeroRevealPrompt(input);
     return this.submitAndPoll({ prompt, imageUrls: [photoUrl] });
   }
 
-  async generateScene(input: SceneInput): Promise<GeneratedImage> {
+  async generateCoverImage(input: CoverImageInput): Promise<GeneratedImage> {
     const anchorUrl = await this.signedUrlFor(input.heroAnchorStoragePath);
-    const prompt = this.buildScenePrompt(input);
-    return this.submitAndPoll({ prompt, imageUrls: [anchorUrl] });
+    const extraPaths = [
+      input.originalPhotoStoragePath,
+      input.buddyPhotoStoragePath,
+    ].filter((p): p is string => !!p);
+    const extraUrls = await Promise.all(extraPaths.map((p) => this.signedUrlFor(p)));
+    const prompt = buildCoverPrompt(input);
+    return this.submitAndPoll({ prompt, imageUrls: [anchorUrl, ...extraUrls] });
+  }
+
+  async generateScene(input: SceneInput): Promise<GeneratedImage> {
+    const refUrl = await this.signedUrlFor(input.refStoragePath);
+    const prompt = buildScenePrompt(input);
+    return this.submitAndPoll({ prompt, imageUrls: [refUrl] });
   }
 
   private async submitAndPoll(payload: { prompt: string; imageUrls: string[] }): Promise<GeneratedImage> {
@@ -90,8 +86,18 @@ export class RunningHubClient {
       body: JSON.stringify({ ...payload, aspectRatio: '3:4' }),
     });
 
-    if (!res.ok) throw new Error(`runninghub_http_${res.status}`);
-    return res.json() as Promise<SubmitResponse>;
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`runninghub_http_${res.status}: ${body}`);
+    }
+    const submitRes = await res.json() as SubmitResponse;
+    logger.info('runninghub_submit', {
+      taskId: submitRes.taskId,
+      status: submitRes.status,
+      errorCode: submitRes.errorCode,
+      errorMessage: submitRes.errorMessage,
+    });
+    return submitRes;
   }
 
   private async pollUntilDone(taskId: string): Promise<QueryResponse> {
@@ -110,10 +116,19 @@ export class RunningHubClient {
       const result = await res.json() as QueryResponse;
       logger.info('runninghub_poll', { taskId, status: result.status });
 
-      if (result.status === 'SUCCESS' || result.status === 'FAILED') return result;
+      if (result.status === 'SUCCESS') return result;
+      if (result.status === 'FAILED') {
+        logger.error('runninghub_task_failed', {
+          taskId,
+          errorCode: result.errorCode,
+          errorMessage: result.errorMessage,
+        });
+        return result;
+      }
       await this.sleep(this.pollIntervalMs);
     }
 
+    logger.warn('runninghub_poll_timeout', { taskId, maxPollMs: this.maxPollMs });
     throw new Error(`runninghub_timeout_${taskId}`);
   }
 
@@ -134,43 +149,5 @@ export class RunningHubClient {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
-  }
-
-  private buildHeroRevealPrompt(input: HeroRevealInput): string {
-    const style = ART_STYLE_PROMPTS[input.artStyle];
-    return `
-Create a ${style}.
-
-This is the opening illustration of a personalized children's bedtime storybook.
-Transform the child in the reference photo into the hero of this scene.
-
-Scene: ${input.openingSceneDescription}
-
-Character requirements:
-- Faithfully preserve the child's facial features, hair color and style, skin tone, and any distinctive traits visible in the reference photo
-- Friendly, warm expression, engaged with the scene
-- Three-quarter or full body visible
-${input.definingTraits ? `- Defining traits: ${input.definingTraits}` : ''}
-
-Composition: Cinematic storybook illustration, warm and inviting, soft lighting suitable for a bedtime story.
-The character is the focal point and the background tells part of the story.
-This image will be reused as the master reference for consistency across 7 additional pages.
-    `.trim();
-  }
-
-  private buildScenePrompt(input: SceneInput): string {
-    return `
-Create an illustration matching the reference image's art style and character EXACTLY.
-
-Scene: ${input.scenePrompt}
-
-CRITICAL CONSISTENCY RULES:
-- The character must be visually identical to the reference: same face, hair, skin tone, defining features
-- Defining traits to preserve: ${input.definingTraits}
-- Art style must match the reference precisely
-- The character's outfit may change to fit the scene
-
-Composition: Cinematic storybook page illustration. Character should be clearly visible and identifiable.
-    `.trim();
   }
 }

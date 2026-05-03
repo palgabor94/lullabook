@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/preview_repository.dart';
@@ -67,21 +68,22 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(),
-        title: Text("${widget.childName}'s photo"),
+        title: Text(l10n.photoTitle(widget.childName)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Text(
-              'Add a clear photo of your child\'s face.\nThis will become their storybook hero!',
+            Text(
+              l10n.photoInstruction,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 32),
             GestureDetector(
@@ -100,14 +102,14 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
                         borderRadius: BorderRadius.circular(18),
                         child: Image.file(_photo!, fit: BoxFit.cover),
                       )
-                    : const Column(
+                    : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_a_photo_outlined,
+                          const Icon(Icons.add_a_photo_outlined,
                               size: 48, color: AppColors.primary),
-                          SizedBox(height: 12),
-                          Text('Tap to choose from gallery',
-                              style: TextStyle(color: AppColors.primary)),
+                          const SizedBox(height: 12),
+                          Text(l10n.photoTapGallery,
+                              style: const TextStyle(color: AppColors.primary)),
                         ],
                       ),
               ),
@@ -116,16 +118,16 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
             TextButton.icon(
               onPressed: () => _pickPhoto(ImageSource.camera),
               icon: const Icon(Icons.camera_alt_outlined),
-              label: const Text('Take a photo'),
+              label: Text(l10n.photoCameraButton),
             ),
             const Spacer(),
             if (_loading)
-              const Column(
+              Column(
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 12),
-                  Text('Creating your hero… ~40 seconds',
-                      style: TextStyle(color: AppColors.textSecondary)),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 12),
+                  Text(l10n.photoCreatingHero,
+                      style: const TextStyle(color: AppColors.textSecondary)),
                 ],
               )
             else
@@ -138,9 +140,8 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text('Create my hero!',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                child: Text(l10n.photoCreateCta,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             const SizedBox(height: 32),
           ],

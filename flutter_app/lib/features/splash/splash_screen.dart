@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 
@@ -38,13 +39,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.bgBase,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Twinkling star
             AnimatedBuilder(
               animation: _starController,
               builder: (_, __) {
@@ -61,7 +62,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
             const SizedBox(height: 32),
 
-            // Wordmark — Inter Bold white per v2 spec
             const Text(
               'Lullabook',
               style: TextStyle(
@@ -69,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 fontWeight: FontWeight.w700,
                 fontStyle: FontStyle.normal,
                 fontSize: 36,
-                letterSpacing: -0.9, // -0.025em
+                letterSpacing: -0.9,
                 color: AppColors.textPrimary,
               ),
             )
@@ -79,10 +79,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
             const SizedBox(height: 16),
 
-            // Tagline
-            const Text(
-              'Bedtime stories starring your child',
-              style: TextStyle(
+            Text(
+              l10n.splashTagline,
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
                 color: AppColors.textSecondary,

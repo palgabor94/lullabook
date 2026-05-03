@@ -1,9 +1,9 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { defineSecret } from 'firebase-functions/params';
+import { defineSecret, defineString } from 'firebase-functions/params';
 import { Timestamp } from 'firebase-admin/firestore';
 import { v4 as uuid } from 'uuid';
 
-import { RunningHubClient } from '../infrastructure/ai/RunningHubClient';
+import { createImageProvider } from '../infrastructure/ai/createImageProvider';
 import { AssetUploader } from '../infrastructure/storage/AssetUploader';
 import { PreviewRepository } from '../infrastructure/firestore/PreviewRepository';
 import { ADVENTURE_SCENES, ADVENTURE_OPENING_LINES } from '../domain/entities/Preview';
@@ -11,6 +11,8 @@ import { hashFingerprint, hashIp } from '../utils/deviceFingerprint';
 import { logger } from '../utils/logger';
 
 const RUNNINGHUB_KEY = defineSecret('RUNNINGHUB_API_KEY');
+const NANOBANANA_KEY = defineSecret('NANOBANANA_API_KEY');
+const IMAGE_PROVIDER = defineString('IMAGE_PROVIDER', { default: 'runninghub' });
 
 interface GeneratePreviewInput {
   childName: string;
@@ -22,10 +24,11 @@ interface GeneratePreviewInput {
 
 export const generatePreview = onCall<GeneratePreviewInput>(
   {
-    secrets: [RUNNINGHUB_KEY],
+    secrets: [RUNNINGHUB_KEY, NANOBANANA_KEY],
+    invoker: 'public',
     cors: true,
     memory: '1GiB',
-    timeoutSeconds: 180,
+    timeoutSeconds: 300,
     maxInstances: 50,
   },
   async (request) => {
@@ -48,7 +51,7 @@ export const generatePreview = onCall<GeneratePreviewInput>(
     const uploader = new AssetUploader();
     const photoPath = await uploader.uploadTempPhoto(fpHash, photoBuffer);
 
-    const runningHub = new RunningHubClient(RUNNINGHUB_KEY.value());
+    const runningHub = createImageProvider(IMAGE_PROVIDER.value(), RUNNINGHUB_KEY.value(), NANOBANANA_KEY.value());
     const sceneDescription = ADVENTURE_SCENES[adventureChoice] ?? ADVENTURE_SCENES.space_explorer;
 
     let generated;

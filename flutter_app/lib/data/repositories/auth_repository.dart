@@ -8,6 +8,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../../main.dart' show revenueCatConfigured;
+
 final authStateProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
 });
@@ -18,6 +20,16 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 class AuthRepository {
   final _auth = FirebaseAuth.instance;
+
+  Future<void> _rcLogIn(String uid) async {
+    if (!revenueCatConfigured) return;
+    await Purchases.logIn(uid);
+  }
+
+  Future<void> _rcLogOut() async {
+    if (!revenueCatConfigured) return;
+    await Purchases.logOut();
+  }
 
   Future<UserCredential> signInWithApple() async {
     final nonce = _generateNonce();
@@ -37,7 +49,7 @@ class AuthRepository {
     );
 
     final result = await _auth.signInWithCredential(oauthCredential);
-    await Purchases.logIn(result.user!.uid);
+    await _rcLogIn(result.user!.uid);
     return result;
   }
 
@@ -52,12 +64,36 @@ class AuthRepository {
     );
 
     final result = await _auth.signInWithCredential(credential);
-    await Purchases.logIn(result.user!.uid);
+    await _rcLogIn(result.user!.uid);
+    return result;
+  }
+
+  Future<UserCredential> signInAnonymously() async {
+    final result = await _auth.signInAnonymously();
+    await _rcLogIn(result.user!.uid);
+    return result;
+  }
+
+  Future<UserCredential> signInWithEmail(String email, String password) async {
+    final result = await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    await _rcLogIn(result.user!.uid);
+    return result;
+  }
+
+  Future<UserCredential> registerWithEmail(String email, String password) async {
+    final result = await _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    await _rcLogIn(result.user!.uid);
     return result;
   }
 
   Future<void> signOut() async {
-    await Purchases.logOut();
+    await _rcLogOut();
     await Future.wait([
       _auth.signOut(),
       GoogleSignIn().signOut(),

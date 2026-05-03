@@ -24,6 +24,11 @@ export interface UserDoc {
     storiesGenerated: number;
   };
 
+  heroCreationUsage: {
+    date: string;
+    count: number;
+  };
+
   totalStoriesCreated: number;
   totalHeroesCreated: number;
   previewsUsed: number;

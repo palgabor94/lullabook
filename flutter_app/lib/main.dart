@@ -8,6 +8,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app.dart';
+import 'core/providers/debug_settings_provider.dart';
 import 'data/sources/local/story_cache.dart';
 import 'firebase_options.dart';
 
@@ -20,6 +21,7 @@ void main() async {
   );
 
   await StoryCache.init();
+  await DebugSettingsNotifier.init();
   await _configureRevenueCat();
 
   await SentryFlutter.init(
@@ -31,6 +33,8 @@ void main() async {
   );
 }
 
+bool revenueCatConfigured = false;
+
 Future<void> _configureRevenueCat() async {
   final apiKey = Platform.isIOS
       ? dotenv.env['REVENUECAT_PUBLIC_API_KEY_IOS'] ?? ''
@@ -39,4 +43,5 @@ Future<void> _configureRevenueCat() async {
   if (apiKey.isEmpty) return;
 
   await Purchases.configure(PurchasesConfiguration(apiKey));
+  revenueCatConfigured = true;
 }

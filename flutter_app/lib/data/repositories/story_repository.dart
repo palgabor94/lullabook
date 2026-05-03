@@ -17,24 +17,29 @@ class StoryRepository {
   CollectionReference<Map<String, dynamic>> _storiesCol(String uid) =>
       _firestore.collection('users').doc(uid).collection('stories');
 
-  Future<({String storyId, String title})> generateStory({
+  Future<void> generateStory({
+    required String storyId,
     required String heroId,
     required Map<String, dynamic> setup,
     String language = 'en-US',
+    bool debugMode = false,
+    int? debugPageCount,
+    int? debugImageCount,
   }) async {
-    final result = await _functions
-        .httpsCallable('generateStory')
+    await _functions
+        .httpsCallable(
+          'generateStory',
+          options: HttpsCallableOptions(timeout: const Duration(minutes: 9)),
+        )
         .call<Map<dynamic, dynamic>>({
+      'storyId': storyId,
       'heroId': heroId,
       'setup': setup,
       'language': language,
+      if (debugMode) 'debugMode': true,
+      if (debugMode && debugPageCount != null) 'debugPageCount': debugPageCount,
+      if (debugMode && debugImageCount != null) 'debugImageCount': debugImageCount,
     });
-
-    final data = Map<String, dynamic>.from(result.data);
-    return (
-      storyId: data['storyId'] as String,
-      title: data['title'] as String,
-    );
   }
 
   Future<Story?> get(String storyId) async {

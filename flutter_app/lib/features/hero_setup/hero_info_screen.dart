@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/lullabook_colors.dart';
@@ -47,11 +48,11 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  void _continue(AppLocalizations l10n) {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Enter your child's name")),
+        SnackBar(content: Text(l10n.heroNameValidation)),
       );
       return;
     }
@@ -79,6 +80,8 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       backgroundColor: AppColors.bgBase,
       body: SafeArea(
@@ -89,7 +92,6 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
             children: [
               const SizedBox(height: 16),
 
-              // Top bar: back + progress dashes
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -107,35 +109,33 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
                       ),
                     )),
                   ),
-                  const SizedBox(width: 36), // visual balance
+                  const SizedBox(width: 36),
                 ],
               ),
 
               const SizedBox(height: 24),
 
-              // Eyebrow + dynamic title
-              const Text(
-                'STEP 2 OF 3 · ABOUT THE HERO',
+              Text(
+                l10n.heroInfoEyebrow,
                 style: LullabookTypography.eyebrowMd,
               ),
               const SizedBox(height: 8),
               ListenableBuilder(
                 listenable: _nameController,
-                builder: (_, __) => Text(
-                  'Tell us about\n$_dynamicName',
+                builder: (ctx, __) => Text(
+                  AppLocalizations.of(ctx)!.heroInfoTitle(_dynamicName),
                   style: LullabookTypography.displayXl,
                 ),
               ),
 
               const SizedBox(height: 28),
 
-              // Name field
               TextField(
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(
-                  labelText: 'Name',
+                  labelText: l10n.heroNameLabel,
                   labelStyle: const TextStyle(color: AppColors.textTertiary),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -152,8 +152,7 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
 
               const SizedBox(height: 24),
 
-              // Age — segmented control
-              const Text('AGE', style: LullabookTypography.eyebrowSm),
+              Text(l10n.heroAgeHeader, style: LullabookTypography.eyebrowSm),
               const SizedBox(height: 8),
               Row(
                 children: [3, 4, 5, 6, 7, 8].map((age) {
@@ -200,14 +199,13 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
 
               const SizedBox(height: 24),
 
-              // Pronouns
-              const Text('PRONOUNS', style: LullabookTypography.eyebrowSm),
+              Text(l10n.heroPronounsHeader, style: LullabookTypography.eyebrowSm),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: HeroPronouns.values.map((p) => LullabookChip(
-                  label: p.label,
+                  label: p.localizedLabel(l10n),
                   selected: _pronouns == p,
                   onTap: () => setState(() => _pronouns = p),
                 )).toList(),
@@ -215,13 +213,12 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
 
               const SizedBox(height: 24),
 
-              // Defining traits
               TextField(
                 controller: _traitsController,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(
-                  labelText: 'Defining traits (optional)',
-                  hintText: 'brown wavy hair, blue glasses, freckles',
+                  labelText: l10n.heroTraitsLabel,
+                  hintText: l10n.heroTraitsHint,
                   labelStyle: const TextStyle(color: AppColors.textTertiary),
                   hintStyle: const TextStyle(color: AppColors.textFaint),
                   enabledBorder: OutlineInputBorder(
@@ -239,14 +236,13 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
 
               const SizedBox(height: 24),
 
-              // Art style
-              const Text('ART STYLE', style: LullabookTypography.eyebrowSm),
+              Text(l10n.heroArtStyleHeader, style: LullabookTypography.eyebrowSm),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: ArtStyle.values.map((s) => LullabookChip(
-                  label: s.label,
+                  label: s.localizedLabel(l10n),
                   selected: _artStyle == s,
                   onTap: () => setState(() => _artStyle = s),
                 )).toList(),
@@ -254,12 +250,11 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
 
               const SizedBox(height: 40),
 
-              // Primary CTA — white background, dark text
               SizedBox(
                 width: double.infinity,
                 height: 54,
                 child: FilledButton(
-                  onPressed: _continue,
+                  onPressed: () => _continue(l10n),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.textPrimary,
                     foregroundColor: AppColors.bgBase,
@@ -269,7 +264,7 @@ class _HeroInfoScreenState extends ConsumerState<HeroInfoScreen> {
                     elevation: 0,
                   ),
                   child: Text(
-                    widget.previewId != null ? 'Confirm hero' : 'Next: Add photo',
+                    widget.previewId != null ? l10n.heroConfirmButton : l10n.heroNextPhotoButton,
                     style: LullabookTypography.labelButton
                         .copyWith(color: AppColors.bgBase),
                   ),

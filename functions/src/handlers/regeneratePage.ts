@@ -1,12 +1,14 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { defineSecret } from 'firebase-functions/params';
+import { defineSecret, defineString } from 'firebase-functions/params';
 import { logger } from '../utils/logger';
 import { HeroRepository } from '../infrastructure/firestore/HeroRepository';
 import { StoryRepository } from '../infrastructure/firestore/StoryRepository';
-import { RunningHubClient } from '../infrastructure/ai/RunningHubClient';
+import { createImageProvider } from '../infrastructure/ai/createImageProvider';
 import { AssetUploader } from '../infrastructure/storage/AssetUploader';
 
 const RUNNINGHUB_KEY = defineSecret('RUNNINGHUB_API_KEY');
+const NANOBANANA_KEY = defineSecret('NANOBANANA_API_KEY');
+const IMAGE_PROVIDER = defineString('IMAGE_PROVIDER', { default: 'runninghub' });
 
 interface RegeneratePageInput {
   storyId: string;
@@ -15,7 +17,7 @@ interface RegeneratePageInput {
 
 export const regeneratePage = onCall<RegeneratePageInput>(
   {
-    secrets: [RUNNINGHUB_KEY],
+    secrets: [RUNNINGHUB_KEY, NANOBANANA_KEY],
     cors: true,
     memory: '512MiB',
     timeoutSeconds: 180,
@@ -33,7 +35,7 @@ export const regeneratePage = onCall<RegeneratePageInput>(
     const storyRepo = new StoryRepository();
     const heroRepo = new HeroRepository();
     const uploader = new AssetUploader();
-    const runningHub = new RunningHubClient(RUNNINGHUB_KEY.value());
+    const runningHub = createImageProvider(IMAGE_PROVIDER.value(), RUNNINGHUB_KEY.value(), NANOBANANA_KEY.value());
 
     const story = await storyRepo.get(uid, storyId);
     if (!story) throw new HttpsError('not-found', 'Story not found');
@@ -46,7 +48,7 @@ export const regeneratePage = onCall<RegeneratePageInput>(
 
     try {
       const result = await runningHub.generateScene({
-        heroAnchorStoragePath: hero.heroAnchorStoragePath,
+        refStoragePath: `stories/${uid}/${storyId}/cover.png`,
         definingTraits: hero.definingTraits,
         scenePrompt: page.imagePrompt,
         artStyle: hero.artStyle,

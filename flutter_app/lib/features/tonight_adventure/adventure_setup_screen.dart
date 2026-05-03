@@ -1,3 +1,13 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Lullabook — Adventure Setup Screen
+//
+// Sprint 3 expansion:
+// - 12 locations + 12 goals per theme (was 8+8)
+// - New theme: cosy_home — everyday tales without a hero role, soft bedtime mood
+// - Theme list reordered so cosy_home appears first (most universal)
+// - Goals are now thematically tied to each theme's locations and tone
+// ─────────────────────────────────────────────────────────────────────────────
+
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -5,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/providers/debug_settings_provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -22,407 +33,651 @@ class _ThemeContext {
   const _ThemeContext({required this.locations, required this.goals});
 }
 
-// ── Themes ────────────────────────────────────────────────────────────────────
+// ── Const structures for state management (ID lookup only) ───────────────────
 
-const List<_Option> _themes = [
-  (id: 'astronaut',      label: 'Astronaut',      emoji: '🚀'),
-  (id: 'pirate',         label: 'Pirate',          emoji: '🏴‍☠️'),
-  (id: 'wizard',         label: 'Wizard',          emoji: '🧙'),
-  (id: 'princess',       label: 'Princess',        emoji: '👑'),
-  (id: 'knight',         label: 'Knight',          emoji: '⚔️'),
-  (id: 'mermaid',        label: 'Mermaid',         emoji: '🧜'),
-  (id: 'superhero',      label: 'Superhero',       emoji: '🦸'),
-  (id: 'chef',           label: 'Chef',            emoji: '👨‍🍳'),
-  (id: 'scientist',      label: 'Scientist',       emoji: '🔬'),
-  (id: 'ninja',          label: 'Ninja',           emoji: '🥷'),
-  (id: 'explorer',       label: 'Explorer',        emoji: '🧭'),
-  (id: 'vet',            label: 'Vet',             emoji: '🐾'),
-  (id: 'inventor',       label: 'Inventor',        emoji: '💡'),
-  (id: 'paleontologist', label: 'Dino Hunter',     emoji: '🦕'),
-  (id: 'firefighter',    label: 'Firefighter',     emoji: '🚒'),
-  (id: 'robot_pilot',    label: 'Robot Pilot',     emoji: '🤖'),
+const List<({String id, String emoji})> _kThemeIds = [
+  (id: 'cosy_home',      emoji: '🏠'),
+  (id: 'astronaut',      emoji: '🚀'),
+  (id: 'pirate',         emoji: '🏴‍☠️'),
+  (id: 'wizard',         emoji: '🧙'),
+  (id: 'princess',       emoji: '👑'),
+  (id: 'knight',         emoji: '⚔️'),
+  (id: 'mermaid',        emoji: '🧜'),
+  (id: 'superhero',      emoji: '🦸'),
+  (id: 'chef',           emoji: '👨‍🍳'),
+  (id: 'scientist',      emoji: '🔬'),
+  (id: 'ninja',          emoji: '🥷'),
+  (id: 'explorer',       emoji: '🧭'),
+  (id: 'vet',            emoji: '🐾'),
+  (id: 'inventor',       emoji: '💡'),
+  (id: 'paleontologist', emoji: '🦕'),
+  (id: 'firefighter',    emoji: '🚒'),
+  (id: 'robot_pilot',    emoji: '🤖'),
 ];
 
-// ── Contextual data: locations & goals per theme ──────────────────────────────
+// First location/goal IDs per theme (for state init when switching themes)
+const Map<String, (String, String)> _kThemeFirstIds = {
+  'cosy_home':      ('home_bedroom',     'lost_toy'),
+  'astronaut':      ('space_station',    'fix_rocket'),
+  'pirate':         ('treasure_island',  'buried_treasure'),
+  'wizard':         ('magic_forest',     'break_spell'),
+  'princess':       ('royal_palace',     'missing_crown'),
+  'knight':         ('dragon_lair',      'defeat_dragon'),
+  'mermaid':        ('deep_ocean',       'stolen_pearl'),
+  'superhero':      ('big_city',         'stop_meteor_super'),
+  'chef':           ('magic_kitchen',    'magical_dish'),
+  'scientist':      ('secret_lab',       'new_element'),
+  'ninja':          ('hidden_temple',    'stolen_scroll'),
+  'explorer':       ('amazon_jungle',    'map_island'),
+  'vet':            ('magic_jungle',     'heal_dragon'),
+  'inventor':       ('sky_workshop',     'magical_machine'),
+  'paleontologist': ('dino_valley',      'hidden_fossil'),
+  'firefighter':    ('burning_forest',   'stop_fire'),
+  'robot_pilot':    ('robot_space',      'repair_satellite'),
+};
 
-const Map<String, _ThemeContext> _themeContexts = {
+// ── Localized theme builder ───────────────────────────────────────────────────
+
+List<_Option> _buildThemes(AppLocalizations l10n) => [
+  (id: 'cosy_home',      label: l10n.themeCosyHome,      emoji: '🏠'),
+  (id: 'astronaut',      label: l10n.themeAstronaut,     emoji: '🚀'),
+  (id: 'pirate',         label: l10n.themePirate,        emoji: '🏴‍☠️'),
+  (id: 'wizard',         label: l10n.themeWizard,        emoji: '🧙'),
+  (id: 'princess',       label: l10n.themePrincess,      emoji: '👑'),
+  (id: 'knight',         label: l10n.themeKnight,        emoji: '⚔️'),
+  (id: 'mermaid',        label: l10n.themeMermaid,       emoji: '🧜'),
+  (id: 'superhero',      label: l10n.themeSuperhero,     emoji: '🦸'),
+  (id: 'chef',           label: l10n.themeChef,          emoji: '👨‍🍳'),
+  (id: 'scientist',      label: l10n.themeScientist,     emoji: '🔬'),
+  (id: 'ninja',          label: l10n.themeNinja,         emoji: '🥷'),
+  (id: 'explorer',       label: l10n.themeExplorer,      emoji: '🧭'),
+  (id: 'vet',            label: l10n.themeVet,           emoji: '🐾'),
+  (id: 'inventor',       label: l10n.themeInventor,      emoji: '💡'),
+  (id: 'paleontologist', label: l10n.themeDinoHunter,    emoji: '🦕'),
+  (id: 'firefighter',    label: l10n.themeFirefighter,   emoji: '🚒'),
+  (id: 'robot_pilot',    label: l10n.themeRobotPilot,    emoji: '🤖'),
+];
+
+// ── Theme contexts (12 locations + 12 goals each) ────────────────────────────
+
+Map<String, _ThemeContext> _buildThemeContexts(AppLocalizations l10n) => {
+  // ── COSY HOME ─────────────────────────────────────────────────────────────
+  'cosy_home': _ThemeContext(
+    locations: [
+      (id: 'home_bedroom',     label: l10n.locCosyHomeBedroom,        emoji: '🛏️'),
+      (id: 'home_kitchen',     label: l10n.locCosyHomeKitchen,        emoji: '🍳'),
+      (id: 'home_garden',      label: l10n.locCosyHomeGarden,         emoji: '🌷'),
+      (id: 'home_attic',       label: l10n.locCosyHomeAttic,          emoji: '📦'),
+      (id: 'home_livingroom',  label: l10n.locCosyHomeLivingRoom,     emoji: '🛋️'),
+      (id: 'park_nearby',      label: l10n.locCosyParkNearby,         emoji: '🌳'),
+      (id: 'library',          label: l10n.locCosyLibrary,            emoji: '📚'),
+      (id: 'playground',       label: l10n.locCosyPlayground,         emoji: '🎠'),
+      (id: 'farmers_market',   label: l10n.locCosyFarmersMarket,      emoji: '🥕'),
+      (id: 'forest_clearing',  label: l10n.locCosyForestClearing,     emoji: '🍂'),
+      (id: 'pond',             label: l10n.locCosyPond,               emoji: '🦆'),
+      (id: 'meadow',           label: l10n.locCosyMeadow,             emoji: '🌼'),
+    ],
+    goals: [
+      (id: 'lost_toy',         label: l10n.goalCosyLostToy,           emoji: '🧸'),
+      (id: 'first_friend',     label: l10n.goalCosyFirstFriend,       emoji: '🤝'),
+      (id: 'help_neighbour',   label: l10n.goalCosyHelpNeighbour,     emoji: '🌻'),
+      (id: 'tidy_room',        label: l10n.goalCosyTidyRoom,          emoji: '✨'),
+      (id: 'bake_together',    label: l10n.goalCosyBakeTogether,      emoji: '🍪'),
+      (id: 'feed_birds',       label: l10n.goalCosyFeedBirds,         emoji: '🐦'),
+      (id: 'bedtime_fear',     label: l10n.goalCosyBedtimeFear,       emoji: '🌙'),
+      (id: 'share_toy',        label: l10n.goalCosyShareToy,          emoji: '🎁'),
+      (id: 'plant_seed',       label: l10n.goalCosyPlantSeed,         emoji: '🌱'),
+      (id: 'rainy_afternoon',  label: l10n.goalCosyRainyAfternoon,    emoji: '🌧️'),
+      (id: 'visit_grandparent',label: l10n.goalCosyVisitGrandparent,  emoji: '👵'),
+      (id: 'find_pebble',      label: l10n.goalCosyFindPebble,        emoji: '🪨'),
+    ],
+  ),
+
+  // ── ASTRONAUT ─────────────────────────────────────────────────────────────
   'astronaut': _ThemeContext(
     locations: [
-      (id: 'space_station',  label: 'Space Station',  emoji: '🛸'),
-      (id: 'planet_mars',    label: 'Planet Mars',    emoji: '🔴'),
-      (id: 'moon',           label: 'The Moon',       emoji: '🌕'),
-      (id: 'asteroid_belt',  label: 'Asteroid Belt',  emoji: '☄️'),
-      (id: 'alien_planet',   label: 'Alien Planet',   emoji: '🌍'),
-      (id: 'comet',          label: 'Comet Trail',    emoji: '💫'),
-      (id: 'nebula',         label: 'Crystal Nebula', emoji: '🌌'),
-      (id: 'black_hole',     label: 'Black Hole Edge',emoji: '🌀'),
+      (id: 'space_station',    label: l10n.locAstronautSpaceStation,    emoji: '🛸'),
+      (id: 'planet_mars',      label: l10n.locAstronautPlanetMars,      emoji: '🔴'),
+      (id: 'moon',             label: l10n.locAstronautMoon,            emoji: '🌕'),
+      (id: 'asteroid_belt',    label: l10n.locAstronautAsteroidBelt,    emoji: '☄️'),
+      (id: 'alien_planet',     label: l10n.locAstronautAlienPlanet,     emoji: '🌍'),
+      (id: 'comet',            label: l10n.locAstronautCometTrail,      emoji: '💫'),
+      (id: 'nebula',           label: l10n.locAstronautCrystalNebula,   emoji: '🌌'),
+      (id: 'black_hole',       label: l10n.locAstronautBlackHole,       emoji: '🌀'),
+      (id: 'rings_of_saturn',  label: l10n.locAstronautRingsOfSaturn,   emoji: '🪐'),
+      (id: 'jupiter_storm',    label: l10n.locAstronautJupiterStorm,    emoji: '🌪️'),
+      (id: 'ice_moon',         label: l10n.locAstronautIceMoon,         emoji: '🧊'),
+      (id: 'lunar_base',       label: l10n.locAstronautLunarBase,       emoji: '🏗️'),
     ],
     goals: [
-      (id: 'fix_rocket',      label: 'Fix the rocket',        emoji: '🔧'),
-      (id: 'new_planet',      label: 'Discover a new planet', emoji: '🔭'),
-      (id: 'save_station',    label: 'Save the space station',emoji: '🛰️'),
-      (id: 'alien_friends',   label: 'Befriend aliens',       emoji: '👽'),
-      (id: 'find_lost_star',  label: 'Find a lost star',      emoji: '⭐'),
-      (id: 'stop_meteor',     label: 'Stop a meteor',         emoji: '💥'),
-      (id: 'lost_astronaut',  label: 'Rescue a lost crew',    emoji: '🚑'),
-      (id: 'space_treasure',  label: 'Find the space crystal',emoji: '💎'),
+      (id: 'fix_rocket',       label: l10n.goalAstronautFixRocket,      emoji: '🔧'),
+      (id: 'new_planet',       label: l10n.goalAstronautDiscoverPlanet, emoji: '🔭'),
+      (id: 'save_station',     label: l10n.goalAstronautSaveStation,    emoji: '🛰️'),
+      (id: 'alien_friends',    label: l10n.goalAstronautBefriendAliens, emoji: '👽'),
+      (id: 'find_lost_star',   label: l10n.goalAstronautFindStar,       emoji: '⭐'),
+      (id: 'stop_meteor',      label: l10n.goalAstronautStopMeteor,     emoji: '💥'),
+      (id: 'lost_astronaut',   label: l10n.goalAstronautRescueCrew,     emoji: '🚑'),
+      (id: 'space_treasure',   label: l10n.goalAstronautSpaceCrystal,   emoji: '💎'),
+      (id: 'plant_moon_flag',  label: l10n.goalAstronautPlantFlag,      emoji: '🚩'),
+      (id: 'first_contact',    label: l10n.goalAstronautFirstContact,   emoji: '📡'),
+      (id: 'stardust_sample',  label: l10n.goalAstronautStardustSample, emoji: '✨'),
+      (id: 'space_garden',     label: l10n.goalAstronautSpaceGarden,    emoji: '🌱'),
     ],
   ),
+
+  // ── PIRATE ────────────────────────────────────────────────────────────────
   'pirate': _ThemeContext(
     locations: [
-      (id: 'treasure_island', label: 'Treasure Island',   emoji: '🏝️'),
-      (id: 'high_seas',       label: 'The High Seas',     emoji: '⛵'),
-      (id: 'sunken_ship',     label: 'Sunken Galleon',    emoji: '🚢'),
-      (id: 'sea_cave',        label: 'Secret Sea Cave',   emoji: '🦀'),
-      (id: 'pirate_port',     label: 'Pirate Port',       emoji: '⚓'),
-      (id: 'coral_reef',      label: 'Coral Reef',        emoji: '🪸'),
-      (id: 'fog_island',      label: 'Island of Fog',     emoji: '🌫️'),
-      (id: 'stormy_sea',      label: 'Stormy Sea',        emoji: '⛈️'),
+      (id: 'treasure_island',  label: l10n.locPirateTreasureIsland,    emoji: '🏝️'),
+      (id: 'high_seas',        label: l10n.locPirateHighSeas,          emoji: '⛵'),
+      (id: 'sunken_ship',      label: l10n.locPirateSunkenGalleon,     emoji: '🚢'),
+      (id: 'sea_cave',         label: l10n.locPirateSeaCave,           emoji: '🦀'),
+      (id: 'pirate_port',      label: l10n.locPiratePiratePort,        emoji: '⚓'),
+      (id: 'coral_reef',       label: l10n.locPirateCoralReef,         emoji: '🪸'),
+      (id: 'fog_island',       label: l10n.locPirateFogIsland,         emoji: '🌫️'),
+      (id: 'stormy_sea',       label: l10n.locPirateStormySea,         emoji: '⛈️'),
+      (id: 'volcanic_atoll',   label: l10n.locPirateVolcanicAtoll,     emoji: '🌋'),
+      (id: 'mermaid_lagoon',   label: l10n.locPirateMermaidLagoon,     emoji: '🧜'),
+      (id: 'kraken_waters',    label: l10n.locPirateKrakenWaters,      emoji: '🐙'),
+      (id: 'ghost_ship',       label: l10n.locPirateGhostShip,         emoji: '👻'),
     ],
     goals: [
-      (id: 'buried_treasure', label: 'Find buried treasure',  emoji: '💰'),
-      (id: 'free_whale',      label: 'Free a captured whale', emoji: '🐋'),
-      (id: 'decode_map',      label: 'Decode the ancient map',emoji: '🗺️'),
-      (id: 'sail_storm',      label: 'Sail through the storm',emoji: '⛵'),
-      (id: 'save_lighthouse', label: 'Save the lighthouse',   emoji: '🏮'),
-      (id: 'sunken_ship_goal',label: 'Find the sunken ship',  emoji: '🤿'),
-      (id: 'beat_pirate',     label: 'Outsmart the rival pirate',emoji: '🏴‍☠️'),
-      (id: 'magic_shell',     label: 'Find the magic shell',  emoji: '🐚'),
+      (id: 'buried_treasure',  label: l10n.goalPirateBuriedTreasure,   emoji: '💰'),
+      (id: 'free_whale',       label: l10n.goalPirateFreeWhale,        emoji: '🐋'),
+      (id: 'decode_map',       label: l10n.goalPirateDecodeMap,        emoji: '🗺️'),
+      (id: 'sail_storm',       label: l10n.goalPirateSailStorm,        emoji: '⛵'),
+      (id: 'save_lighthouse',  label: l10n.goalPirateSaveLighthouse,   emoji: '🏮'),
+      (id: 'sunken_ship_goal', label: l10n.goalPirateFindSunkenShip,   emoji: '🤿'),
+      (id: 'beat_pirate',      label: l10n.goalPirateBeatRival,        emoji: '🏴‍☠️'),
+      (id: 'magic_shell',      label: l10n.goalPirateMagicShell,       emoji: '🐚'),
+      (id: 'tame_kraken',      label: l10n.goalPirateTameKraken,       emoji: '🐙'),
+      (id: 'mutiny_calm',      label: l10n.goalPirateMutinyCalm,       emoji: '🤝'),
+      (id: 'rescue_parrot',    label: l10n.goalPirateRescueParrot,     emoji: '🦜'),
+      (id: 'free_ghost_crew',  label: l10n.goalPirateFreeGhostCrew,    emoji: '👻'),
     ],
   ),
+
+  // ── WIZARD ────────────────────────────────────────────────────────────────
   'wizard': _ThemeContext(
     locations: [
-      (id: 'magic_forest',    label: 'Magic Forest',     emoji: '🌲'),
-      (id: 'wizard_castle',   label: 'Enchanted Castle', emoji: '🏰'),
-      (id: 'crystal_cave',    label: 'Crystal Cave',     emoji: '💎'),
-      (id: 'wizard_tower',    label: 'Wizard Tower',     emoji: '🗼'),
-      (id: 'spell_library',   label: 'Spell Library',    emoji: '📚'),
-      (id: 'dragon_mountain', label: 'Dragon Mountain',  emoji: '🐉'),
-      (id: 'floating_islands',label: 'Floating Islands', emoji: '🏝️'),
-      (id: 'mirror_realm',    label: 'Mirror Realm',     emoji: '🪞'),
+      (id: 'magic_forest',     label: l10n.locWizardMagicForest,       emoji: '🌲'),
+      (id: 'wizard_castle',    label: l10n.locWizardEnchantedCastle,   emoji: '🏰'),
+      (id: 'crystal_cave',     label: l10n.locWizardCrystalCave,       emoji: '💎'),
+      (id: 'wizard_tower',     label: l10n.locWizardWizardTower,       emoji: '🗼'),
+      (id: 'spell_library',    label: l10n.locWizardSpellLibrary,      emoji: '📚'),
+      (id: 'dragon_mountain',  label: l10n.locWizardDragonMountain,    emoji: '🐉'),
+      (id: 'floating_islands', label: l10n.locWizardFloatingIslands,   emoji: '🏝️'),
+      (id: 'mirror_realm',     label: l10n.locWizardMirrorRealm,       emoji: '🪞'),
+      (id: 'starlit_glade',    label: l10n.locWizardStarlitGlade,      emoji: '🌟'),
+      (id: 'phoenix_nest',     label: l10n.locWizardPhoenixNest,       emoji: '🔥'),
+      (id: 'mooncourt',        label: l10n.locWizardMoonCourt,         emoji: '🌙'),
+      (id: 'fae_market',       label: l10n.locWizardFaeMarket,         emoji: '🍄'),
     ],
     goals: [
-      (id: 'break_spell',     label: 'Break the evil spell',     emoji: '🔮'),
-      (id: 'brew_potion',     label: 'Brew the lost potion',     emoji: '🧪'),
-      (id: 'stolen_wand',     label: 'Return the stolen wand',   emoji: '🪄'),
-      (id: 'wild_spell',      label: 'Tame a wild spell',        emoji: '✨'),
-      (id: 'forbidden_book',  label: 'Open the forbidden book',  emoji: '📖'),
-      (id: 'save_forest',     label: 'Save the magic forest',    emoji: '🌳'),
-      (id: 'tame_dragon',     label: 'Tame the fire dragon',     emoji: '🐲'),
-      (id: 'find_apprentice', label: 'Find the lost apprentice', emoji: '🧑‍🎓'),
+      (id: 'break_spell',      label: l10n.goalWizardBreakSpell,       emoji: '🔮'),
+      (id: 'brew_potion',      label: l10n.goalWizardBrewPotion,       emoji: '🧪'),
+      (id: 'stolen_wand',      label: l10n.goalWizardReturnWand,       emoji: '🪄'),
+      (id: 'wild_spell',       label: l10n.goalWizardTameSpell,        emoji: '✨'),
+      (id: 'forbidden_book',   label: l10n.goalWizardForbiddenBook,    emoji: '📖'),
+      (id: 'save_forest',      label: l10n.goalWizardSaveForest,       emoji: '🌳'),
+      (id: 'tame_dragon',      label: l10n.goalWizardTameDragon,       emoji: '🐲'),
+      (id: 'find_apprentice',  label: l10n.goalWizardFindApprentice,   emoji: '🧑‍🎓'),
+      (id: 'first_spell',      label: l10n.goalWizardFirstSpell,       emoji: '⚡'),
+      (id: 'restore_phoenix',  label: l10n.goalWizardRestorePhoenix,   emoji: '🔥'),
+      (id: 'moon_blessing',    label: l10n.goalWizardMoonBlessing,     emoji: '🌙'),
+      (id: 'fae_bargain',      label: l10n.goalWizardFaeBargain,       emoji: '🤝'),
     ],
   ),
+
+  // ── PRINCESS ──────────────────────────────────────────────────────────────
   'princess': _ThemeContext(
     locations: [
-      (id: 'royal_palace',    label: 'Royal Palace',     emoji: '🏰'),
-      (id: 'enchanted_garden',label: 'Enchanted Garden', emoji: '🌸'),
-      (id: 'glass_lake',      label: 'Glass Lake',       emoji: '🏞️'),
-      (id: 'fairy_village',   label: 'Fairy Village',    emoji: '🧚'),
-      (id: 'cloud_kingdom',   label: 'Cloud Kingdom',    emoji: '☁️'),
-      (id: 'magic_ballroom',  label: 'Magic Ballroom',   emoji: '💃'),
-      (id: 'moonlit_forest',  label: 'Moonlit Forest',   emoji: '🌙'),
-      (id: 'rainbow_bridge',  label: 'Rainbow Bridge',   emoji: '🌈'),
+      (id: 'royal_palace',     label: l10n.locPrincessRoyalPalace,     emoji: '🏰'),
+      (id: 'enchanted_garden', label: l10n.locPrincessEnchantedGarden, emoji: '🌸'),
+      (id: 'glass_lake',       label: l10n.locPrincessGlassLake,       emoji: '🏞️'),
+      (id: 'fairy_village',    label: l10n.locPrincessFairyVillage,    emoji: '🧚'),
+      (id: 'cloud_kingdom',    label: l10n.locPrincessCloudKingdom,    emoji: '☁️'),
+      (id: 'magic_ballroom',   label: l10n.locPrincessMagicBallroom,   emoji: '💃'),
+      (id: 'moonlit_forest',   label: l10n.locPrincessMoonlitForest,   emoji: '🌙'),
+      (id: 'rainbow_bridge',   label: l10n.locPrincessRainbowBridge,   emoji: '🌈'),
+      (id: 'rose_maze',        label: l10n.locPrincessRoseMaze,        emoji: '🌹'),
+      (id: 'crystal_tower',    label: l10n.locPrincessCrystalTower,    emoji: '💠'),
+      (id: 'dawn_gardens',     label: l10n.locPrincessDawnGardens,     emoji: '🌅'),
+      (id: 'tea_pavilion',     label: l10n.locPrincessTeaPavilion,     emoji: '🍵'),
     ],
     goals: [
-      (id: 'missing_crown',   label: 'Find the missing crown',        emoji: '👑'),
-      (id: 'save_garden',     label: 'Save the enchanted garden',     emoji: '🌺'),
-      (id: 'royal_ball',      label: 'Dance at the royal ball',       emoji: '💃'),
-      (id: 'lonely_giant',    label: 'Befriend the lonely giant',     emoji: '🤝'),
-      (id: 'castle_mystery',  label: 'Solve the castle mystery',      emoji: '🔍'),
-      (id: 'sleeping_kingdom',label: 'Wake the sleeping kingdom',     emoji: '😴'),
-      (id: 'rescue_unicorn',  label: 'Rescue the lost unicorn',       emoji: '🦄'),
-      (id: 'magic_mirror',    label: 'Answer the magic mirror',       emoji: '🪞'),
+      (id: 'missing_crown',    label: l10n.goalPrincessMissingCrown,   emoji: '👑'),
+      (id: 'save_garden',      label: l10n.goalPrincessSaveGarden,     emoji: '🌺'),
+      (id: 'royal_ball',       label: l10n.goalPrincessRoyalBall,      emoji: '💃'),
+      (id: 'lonely_giant',     label: l10n.goalPrincessBefriendGiant,  emoji: '🤝'),
+      (id: 'castle_mystery',   label: l10n.goalPrincessSolveMystery,   emoji: '🔍'),
+      (id: 'sleeping_kingdom', label: l10n.goalPrincessWakeKingdom,    emoji: '😴'),
+      (id: 'rescue_unicorn',   label: l10n.goalPrincessRescueUnicorn,  emoji: '🦄'),
+      (id: 'magic_mirror',     label: l10n.goalPrincessMagicMirror,    emoji: '🪞'),
+      (id: 'tea_with_dragon',  label: l10n.goalPrincessTeaWithDragon,  emoji: '🍵'),
+      (id: 'fairy_pact',       label: l10n.goalPrincessFairyPact,      emoji: '🧚'),
+      (id: 'singing_rose',     label: l10n.goalPrincessSingingRose,    emoji: '🌹'),
+      (id: 'lost_kitten',      label: l10n.goalPrincessLostKitten,     emoji: '🐱'),
     ],
   ),
+
+  // ── KNIGHT ────────────────────────────────────────────────────────────────
   'knight': _ThemeContext(
     locations: [
-      (id: 'dragon_lair',     label: "Dragon's Lair",    emoji: '🐉'),
-      (id: 'dark_forest',     label: 'Dark Forest',      emoji: '🌲'),
-      (id: 'giants_keep',     label: "Giant's Keep",     emoji: '🏰'),
-      (id: 'ancient_ruins',   label: 'Ancient Ruins',    emoji: '🏛️'),
-      (id: 'enchanted_bridge',label: 'Enchanted Bridge', emoji: '🌉'),
-      (id: 'mountain_pass',   label: 'Mountain Pass',    emoji: '⛰️'),
-      (id: 'fairy_kingdom',   label: 'Fairy Kingdom',    emoji: '🧚'),
-      (id: 'frozen_castle',   label: 'Frozen Castle',    emoji: '❄️'),
+      (id: 'dragon_lair',      label: l10n.locKnightDragonLair,        emoji: '🐉'),
+      (id: 'dark_forest',      label: l10n.locKnightDarkForest,        emoji: '🌲'),
+      (id: 'giants_keep',      label: l10n.locKnightGiantsKeep,        emoji: '🏰'),
+      (id: 'ancient_ruins',    label: l10n.locKnightAncientRuins,      emoji: '🏛️'),
+      (id: 'enchanted_bridge', label: l10n.locKnightEnchantedBridge,   emoji: '🌉'),
+      (id: 'mountain_pass',    label: l10n.locKnightMountainPass,      emoji: '⛰️'),
+      (id: 'fairy_kingdom',    label: l10n.locKnightFairyKingdom,      emoji: '🧚'),
+      (id: 'frozen_castle',    label: l10n.locKnightFrozenCastle,      emoji: '❄️'),
+      (id: 'silver_lake',      label: l10n.locKnightSilverLake,        emoji: '🌊'),
+      (id: 'tournament_field', label: l10n.locKnightTournamentField,   emoji: '🏇'),
+      (id: 'wizard_grove',     label: l10n.locKnightWizardGrove,       emoji: '🌳'),
+      (id: 'haunted_keep',     label: l10n.locKnightHauntedKeep,       emoji: '👻'),
     ],
     goals: [
-      (id: 'defeat_dragon',   label: 'Defeat the dragon',        emoji: '⚔️'),
-      (id: 'rescue_princess', label: 'Rescue the trapped hero',  emoji: '🤝'),
-      (id: 'golden_sword',    label: 'Find the golden sword',    emoji: '⚔️'),
-      (id: 'protect_village', label: 'Protect the village',      emoji: '🛡️'),
-      (id: 'break_curse',     label: 'Break the dark curse',     emoji: '💀'),
-      (id: 'win_tournament',  label: 'Win the tournament',       emoji: '🏆'),
-      (id: 'siege_castle',    label: 'Free the besieged castle', emoji: '🏰'),
-      (id: 'holy_grail',      label: 'Find the magic grail',     emoji: '🏆'),
+      (id: 'defeat_dragon',    label: l10n.goalKnightDefeatDragon,     emoji: '⚔️'),
+      (id: 'rescue_princess',  label: l10n.goalKnightRescueHero,       emoji: '🤝'),
+      (id: 'golden_sword',     label: l10n.goalKnightGoldenSword,      emoji: '⚔️'),
+      (id: 'protect_village',  label: l10n.goalKnightProtectVillage,   emoji: '🛡️'),
+      (id: 'break_curse',      label: l10n.goalKnightBreakCurse,       emoji: '💀'),
+      (id: 'win_tournament',   label: l10n.goalKnightWinTournament,    emoji: '🏆'),
+      (id: 'siege_castle',     label: l10n.goalKnightFreeCastle,       emoji: '🏰'),
+      (id: 'holy_grail',       label: l10n.goalKnightMagicGrail,       emoji: '🏆'),
+      (id: 'tame_griffin',     label: l10n.goalKnightTameGriffin,      emoji: '🦅'),
+      (id: 'cross_bridge',     label: l10n.goalKnightCrossBridge,      emoji: '🌉'),
+      (id: 'first_quest',      label: l10n.goalKnightFirstQuest,       emoji: '✨'),
+      (id: 'soothe_ghost',     label: l10n.goalKnightSootheGhost,      emoji: '👻'),
     ],
   ),
+
+  // ── MERMAID ───────────────────────────────────────────────────────────────
   'mermaid': _ThemeContext(
     locations: [
-      (id: 'deep_ocean',      label: 'Deep Ocean',       emoji: '🌊'),
-      (id: 'coral_kingdom',   label: 'Coral Kingdom',    emoji: '🪸'),
-      (id: 'underwater_cave', label: 'Underwater Cave',  emoji: '🕳️'),
-      (id: 'sea_dragon_lair', label: "Sea Dragon's Lair",emoji: '🐲'),
-      (id: 'sunken_city',     label: 'Sunken City',      emoji: '🏙️'),
-      (id: 'rainbow_reef',    label: 'Rainbow Reef',     emoji: '🌈'),
-      (id: 'pearl_grotto',    label: 'Pearl Grotto',     emoji: '🐚'),
-      (id: 'whirlpool_sea',   label: 'Whirlpool Sea',    emoji: '🌀'),
+      (id: 'deep_ocean',       label: l10n.locMermaidDeepOcean,        emoji: '🌊'),
+      (id: 'coral_kingdom',    label: l10n.locMermaidCoralKingdom,     emoji: '🪸'),
+      (id: 'underwater_cave',  label: l10n.locMermaidUnderwaterCave,   emoji: '🕳️'),
+      (id: 'sea_dragon_lair',  label: l10n.locMermaidSeaDragonLair,    emoji: '🐲'),
+      (id: 'sunken_city',      label: l10n.locMermaidSunkenCity,       emoji: '🏙️'),
+      (id: 'rainbow_reef',     label: l10n.locMermaidRainbowReef,      emoji: '🌈'),
+      (id: 'pearl_grotto',     label: l10n.locMermaidPearlGrotto,      emoji: '🐚'),
+      (id: 'whirlpool_sea',    label: l10n.locMermaidWhirlpoolSea,     emoji: '🌀'),
+      (id: 'kelp_forest',      label: l10n.locMermaidKelpForest,       emoji: '🌿'),
+      (id: 'moonlight_bay',    label: l10n.locMermaidMoonlightBay,     emoji: '🌙'),
+      (id: 'jellyfish_glade',  label: l10n.locMermaidJellyfishGlade,   emoji: '🪼'),
+      (id: 'shipwreck_garden', label: l10n.locMermaidShipwreckGarden,  emoji: '🚢'),
     ],
     goals: [
-      (id: 'stolen_pearl',    label: 'Find the stolen pearl',    emoji: '🔮'),
-      (id: 'save_reef',       label: 'Save the coral reef',      emoji: '🪸'),
-      (id: 'lonely_shark',    label: 'Befriend a lonely shark',  emoji: '🦈'),
-      (id: 'sunken_treasure', label: 'Recover sunken treasure',  emoji: '💰'),
-      (id: 'guide_fish',      label: 'Guide the lost fish home', emoji: '🐟'),
-      (id: 'ocean_storm',     label: 'Stop the ocean storm',     emoji: '⛈️'),
-      (id: 'sea_witch',       label: 'Outwit the sea witch',     emoji: '🧙'),
-      (id: 'whale_song',      label: "Hear the whale's secret",  emoji: '🐋'),
+      (id: 'stolen_pearl',     label: l10n.goalMermaidStolenPearl,     emoji: '🔮'),
+      (id: 'save_reef',        label: l10n.goalMermaidSaveReef,        emoji: '🪸'),
+      (id: 'lonely_shark',     label: l10n.goalMermaidFriendShark,     emoji: '🦈'),
+      (id: 'sunken_treasure',  label: l10n.goalMermaidSunkenTreasure,  emoji: '💰'),
+      (id: 'guide_fish',       label: l10n.goalMermaidGuideFish,       emoji: '🐟'),
+      (id: 'ocean_storm',      label: l10n.goalMermaidStopStorm,       emoji: '⛈️'),
+      (id: 'sea_witch',        label: l10n.goalMermaidOutwitWitch,     emoji: '🧙'),
+      (id: 'whale_song',       label: l10n.goalMermaidWhaleSecret,     emoji: '🐋'),
+      (id: 'baby_octopus',     label: l10n.goalMermaidBabyOctopus,     emoji: '🐙'),
+      (id: 'lost_starfish',    label: l10n.goalMermaidLostStarfish,    emoji: '⭐'),
+      (id: 'tide_pool_friend', label: l10n.goalMermaidTidePoolFriend,  emoji: '🦀'),
+      (id: 'mermaid_song',     label: l10n.goalMermaidLearnSong,       emoji: '🎵'),
     ],
   ),
+
+  // ── SUPERHERO ─────────────────────────────────────────────────────────────
   'superhero': _ThemeContext(
     locations: [
-      (id: 'big_city',        label: 'Big City',         emoji: '🏙️'),
-      (id: 'secret_base',     label: 'Secret Base',      emoji: '🦇'),
-      (id: 'volcano_island',  label: 'Volcano Island',   emoji: '🌋'),
-      (id: 'hero_space',      label: 'Outer Space',      emoji: '🌌'),
-      (id: 'underwater_city', label: 'Underwater City',  emoji: '🌊'),
-      (id: 'storm_cloud',     label: 'Storm Cloud',      emoji: '⛈️'),
-      (id: 'rooftops',        label: 'City Rooftops',    emoji: '🏗️'),
-      (id: 'time_portal',     label: 'Time Portal',      emoji: '⏳'),
+      (id: 'big_city',         label: l10n.locSuperherooBigCity,       emoji: '🏙️'),
+      (id: 'secret_base',      label: l10n.locSuperheroSecretBase,     emoji: '🦇'),
+      (id: 'volcano_island',   label: l10n.locSuperheroVolcanoIsland,  emoji: '🌋'),
+      (id: 'hero_space',       label: l10n.locSuperheroOuterSpace,     emoji: '🌌'),
+      (id: 'underwater_city',  label: l10n.locSuperheroUnderwaterCity, emoji: '🌊'),
+      (id: 'storm_cloud',      label: l10n.locSuperheroStormCloud,     emoji: '⛈️'),
+      (id: 'rooftops',         label: l10n.locSuperheroCityRooftops,   emoji: '🏗️'),
+      (id: 'time_portal',      label: l10n.locSuperheroTimePortal,     emoji: '⏳'),
+      (id: 'subway_tunnels',   label: l10n.locSuperheroSubwayTunnels,  emoji: '🚇'),
+      (id: 'sky_arena',        label: l10n.locSuperheroSkyArena,       emoji: '🌤️'),
+      (id: 'frozen_metropolis',label: l10n.locSuperheroFrozenCity,     emoji: '❄️'),
+      (id: 'parallel_world',   label: l10n.locSuperheroParallelWorld,  emoji: '🪞'),
     ],
     goals: [
-      (id: 'stop_meteor',     label: 'Stop the falling meteor',  emoji: '☄️'),
-      (id: 'save_flood',      label: 'Save city from flood',     emoji: '🌊'),
-      (id: 'catch_villain',   label: 'Catch the sneaky villain', emoji: '🦹'),
-      (id: 'protect_secret',  label: 'Protect a secret identity',emoji: '🕵️'),
-      (id: 'help_puppy',      label: 'Save a scared puppy',      emoji: '🐕'),
-      (id: 'restore_powers',  label: 'Restore lost powers',      emoji: '⚡'),
-      (id: 'evil_robot',      label: 'Stop the evil robot',      emoji: '🤖'),
-      (id: 'rescue_scientist',label: 'Rescue the scientist',     emoji: '👨‍🔬'),
+      (id: 'stop_meteor_super',label: l10n.goalSuperheroStopMeteor,    emoji: '☄️'),
+      (id: 'save_flood',       label: l10n.goalSuperheroSaveFlood,     emoji: '🌊'),
+      (id: 'catch_villain',    label: l10n.goalSuperheroCatchVillain,  emoji: '🦹'),
+      (id: 'protect_secret',   label: l10n.goalSuperheroProtectSecret, emoji: '🕵️'),
+      (id: 'help_puppy',       label: l10n.goalSuperheroSavePuppy,     emoji: '🐕'),
+      (id: 'restore_powers',   label: l10n.goalSuperheroRestorePowers, emoji: '⚡'),
+      (id: 'evil_robot',       label: l10n.goalSuperheroStopRobot,     emoji: '🤖'),
+      (id: 'rescue_scientist', label: l10n.goalSuperheroRescueScientist,emoji: '👨‍🔬'),
+      (id: 'first_save',       label: l10n.goalSuperheroFirstSave,     emoji: '✨'),
+      (id: 'team_up_hero',     label: l10n.goalSuperheroTeamUp,        emoji: '👥'),
+      (id: 'reverse_freeze',   label: l10n.goalSuperheroReverseFreeze, emoji: '❄️'),
+      (id: 'find_mentor',      label: l10n.goalSuperheroFindMentor,    emoji: '🦸'),
     ],
   ),
+
+  // ── CHEF ──────────────────────────────────────────────────────────────────
   'chef': _ThemeContext(
     locations: [
-      (id: 'magic_kitchen',   label: 'Magic Kitchen',    emoji: '🍳'),
-      (id: 'enchanted_farm',  label: 'Enchanted Farm',   emoji: '🌾'),
-      (id: 'candy_land',      label: 'Candy Land',       emoji: '🍭'),
-      (id: 'secret_garden',   label: 'Secret Garden',    emoji: '🌻'),
-      (id: 'giant_market',    label: 'Giant Market',     emoji: '🛒'),
-      (id: 'floating_rest',   label: 'Floating Restaurant',emoji: '🍽️'),
-      (id: 'dragon_bakery',   label: 'Dragon Bakery',    emoji: '🐉'),
-      (id: 'moonlit_vineyard',label: 'Moonlit Vineyard', emoji: '🍇'),
+      (id: 'magic_kitchen',    label: l10n.locChefMagicKitchen,        emoji: '🍳'),
+      (id: 'enchanted_farm',   label: l10n.locChefEnchantedFarm,       emoji: '🌾'),
+      (id: 'candy_land',       label: l10n.locChefCandyLand,           emoji: '🍭'),
+      (id: 'secret_garden',    label: l10n.locChefSecretGarden,        emoji: '🌻'),
+      (id: 'giant_market',     label: l10n.locChefGiantMarket,         emoji: '🛒'),
+      (id: 'floating_rest',    label: l10n.locChefFloatingRestaurant,  emoji: '🍽️'),
+      (id: 'dragon_bakery',    label: l10n.locChefDragonBakery,        emoji: '🐉'),
+      (id: 'moonlit_vineyard', label: l10n.locChefMoonlitVineyard,     emoji: '🍇'),
+      (id: 'spice_caravan',    label: l10n.locChefSpiceCaravan,        emoji: '🐪'),
+      (id: 'cloud_pantry',     label: l10n.locChefCloudPantry,         emoji: '☁️'),
+      (id: 'rainbow_orchard',  label: l10n.locChefRainbowOrchard,      emoji: '🌈'),
+      (id: 'underwater_galley',label: l10n.locChefUnderwaterGalley,    emoji: '🐠'),
     ],
     goals: [
-      (id: 'magical_dish',    label: 'Create the magical dish',      emoji: '✨'),
-      (id: 'missing_ingredient',label: 'Find the missing ingredient',emoji: '🧂'),
-      (id: 'hungry_dragon',   label: 'Cook for a hungry dragon',     emoji: '🔥'),
-      (id: 'cooking_contest', label: 'Win the cooking contest',      emoji: '🏆'),
-      (id: 'stolen_recipe',   label: 'Rescue the stolen recipe',     emoji: '📜'),
-      (id: 'feed_kingdom',    label: 'Feed the whole kingdom',       emoji: '🍞'),
-      (id: 'magic_cake',      label: 'Bake the impossible cake',     emoji: '🎂'),
-      (id: 'angry_food',      label: 'Calm the angry ingredients',   emoji: '🫙'),
+      (id: 'magical_dish',     label: l10n.goalChefMagicalDish,        emoji: '✨'),
+      (id: 'missing_ingredient',label: l10n.goalChefMissingIngredient, emoji: '🧂'),
+      (id: 'hungry_dragon',    label: l10n.goalChefCookDragon,         emoji: '🔥'),
+      (id: 'cooking_contest',  label: l10n.goalChefWinContest,         emoji: '🏆'),
+      (id: 'stolen_recipe',    label: l10n.goalChefStolenRecipe,       emoji: '📜'),
+      (id: 'feed_kingdom',     label: l10n.goalChefFeedKingdom,        emoji: '🍞'),
+      (id: 'magic_cake',       label: l10n.goalChefImpossibleCake,     emoji: '🎂'),
+      (id: 'angry_food',       label: l10n.goalChefCalmIngredients,    emoji: '🫙'),
+      (id: 'rainbow_pie',      label: l10n.goalChefRainbowPie,         emoji: '🥧'),
+      (id: 'midnight_feast',   label: l10n.goalChefMidnightFeast,      emoji: '🌙'),
+      (id: 'spice_quest',      label: l10n.goalChefSpiceQuest,         emoji: '🌶️'),
+      (id: 'first_dish',       label: l10n.goalChefFirstDish,          emoji: '🍲'),
     ],
   ),
+
+  // ── SCIENTIST ─────────────────────────────────────────────────────────────
   'scientist': _ThemeContext(
     locations: [
-      (id: 'secret_lab',      label: 'Secret Lab',       emoji: '🧪'),
-      (id: 'underwater_station',label: 'Underwater Station',emoji: '🌊'),
-      (id: 'arctic_base',     label: 'Arctic Base',      emoji: '🧊'),
-      (id: 'space_observatory',label: 'Space Observatory',emoji: '🔭'),
-      (id: 'jungle_research', label: 'Jungle Research',  emoji: '🌴'),
-      (id: 'volcano_lab',     label: 'Volcano Lab',      emoji: '🌋'),
-      (id: 'cloud_lab',       label: 'Cloud Laboratory', emoji: '☁️'),
-      (id: 'future_city',     label: 'Future City',      emoji: '🏙️'),
+      (id: 'secret_lab',         label: l10n.locScientistSecretLab,         emoji: '🧪'),
+      (id: 'underwater_station', label: l10n.locScientistUnderwaterStation, emoji: '🌊'),
+      (id: 'arctic_base',        label: l10n.locScientistArcticBase,        emoji: '🧊'),
+      (id: 'space_observatory',  label: l10n.locScientistSpaceObservatory,  emoji: '🔭'),
+      (id: 'jungle_research',    label: l10n.locScientistJungleResearch,    emoji: '🌴'),
+      (id: 'volcano_lab',        label: l10n.locScientistVolcanoLab,        emoji: '🌋'),
+      (id: 'cloud_lab',          label: l10n.locScientistCloudLab,          emoji: '☁️'),
+      (id: 'future_city',        label: l10n.locScientistFutureCity,        emoji: '🏙️'),
+      (id: 'mushroom_lab',       label: l10n.locScientistMushroomLab,       emoji: '🍄'),
+      (id: 'particle_chamber',   label: l10n.locScientistParticleChamber,   emoji: '⚛️'),
+      (id: 'desert_dig',         label: l10n.locScientistDesertDig,         emoji: '🏜️'),
+      (id: 'rainforest_canopy',  label: l10n.locScientistRainforestCanopy,  emoji: '🐒'),
     ],
     goals: [
-      (id: 'new_element',     label: 'Discover a new element',   emoji: '⚗️'),
-      (id: 'fix_experiment',  label: 'Fix the broken experiment',emoji: '🔧'),
-      (id: 'stop_virus',      label: 'Stop the spreading virus', emoji: '🦠'),
-      (id: 'time_machine',    label: 'Build the time machine',   emoji: '⏳'),
-      (id: 'alien_equation',  label: 'Solve the alien equation', emoji: '👽'),
-      (id: 'save_iceberg',    label: 'Save the melting iceberg', emoji: '🧊'),
-      (id: 'shrink_ray',      label: 'Reverse the shrink ray',   emoji: '🔬'),
-      (id: 'grow_creature',   label: 'Tame the giant creature',  emoji: '🦖'),
+      (id: 'new_element',      label: l10n.goalScientistNewElement,    emoji: '⚗️'),
+      (id: 'fix_experiment',   label: l10n.goalScientistFixExperiment, emoji: '🔧'),
+      (id: 'stop_virus',       label: l10n.goalScientistStopVirus,     emoji: '🦠'),
+      (id: 'time_machine',     label: l10n.goalScientistTimeMachine,   emoji: '⏳'),
+      (id: 'alien_equation',   label: l10n.goalScientistAlienEquation, emoji: '👽'),
+      (id: 'save_iceberg',     label: l10n.goalScientistSaveIceberg,   emoji: '🧊'),
+      (id: 'shrink_ray',       label: l10n.goalScientistReverseShrink, emoji: '🔬'),
+      (id: 'grow_creature',    label: l10n.goalScientistTameCreature,  emoji: '🦖'),
+      (id: 'first_invention',  label: l10n.goalScientistFirstInvention,emoji: '💡'),
+      (id: 'glowing_plant',    label: l10n.goalScientistGlowingPlant,  emoji: '🌱'),
+      (id: 'particle_puzzle',  label: l10n.goalScientistParticlePuzzle,emoji: '⚛️'),
+      (id: 'animal_language',  label: l10n.goalScientistAnimalLanguage,emoji: '🐾'),
     ],
   ),
+
+  // ── NINJA ─────────────────────────────────────────────────────────────────
   'ninja': _ThemeContext(
     locations: [
-      (id: 'hidden_temple',   label: 'Hidden Temple',    emoji: '⛩️'),
-      (id: 'bamboo_forest',   label: 'Bamboo Forest',    emoji: '🎋'),
-      (id: 'mountain_fortress',label: 'Mountain Fortress',emoji: '🏔️'),
-      (id: 'shadow_city',     label: 'Shadow City',      emoji: '🌃'),
-      (id: 'underground_maze',label: 'Underground Maze', emoji: '🗺️'),
-      (id: 'ancient_ruins_n', label: 'Ancient Ruins',    emoji: '🏛️'),
-      (id: 'rooftop_village', label: 'Rooftop Village',  emoji: '🏘️'),
-      (id: 'fog_valley',      label: 'Fog Valley',       emoji: '🌫️'),
+      (id: 'hidden_temple',     label: l10n.locNinjaHiddenTemple,      emoji: '⛩️'),
+      (id: 'bamboo_forest',     label: l10n.locNinjaBambooForest,      emoji: '🎋'),
+      (id: 'mountain_fortress', label: l10n.locNinjaMountainFortress,  emoji: '🏔️'),
+      (id: 'shadow_city',       label: l10n.locNinjaShadowCity,        emoji: '🌃'),
+      (id: 'underground_maze',  label: l10n.locNinjaUndergroundMaze,   emoji: '🗺️'),
+      (id: 'ancient_ruins_n',   label: l10n.locNinjaAncientRuins,      emoji: '🏛️'),
+      (id: 'rooftop_village',   label: l10n.locNinjaRooftopVillage,    emoji: '🏘️'),
+      (id: 'fog_valley',        label: l10n.locNinjaFogValley,         emoji: '🌫️'),
+      (id: 'cherry_grove',      label: l10n.locNinjaCherryGrove,       emoji: '🌸'),
+      (id: 'koi_pond',          label: l10n.locNinjaKoiPond,           emoji: '🐟'),
+      (id: 'iron_dojo',         label: l10n.locNinjaIronDojo,          emoji: '🥋'),
+      (id: 'lantern_pass',      label: l10n.locNinjaLanternPass,       emoji: '🏮'),
     ],
     goals: [
-      (id: 'stolen_scroll',   label: 'Retrieve the stolen scroll',   emoji: '📜'),
-      (id: 'shadow_villain',  label: 'Stop the shadow villain',      emoji: '🦹'),
-      (id: 'secret_move',     label: 'Master the secret move',       emoji: '🥋'),
-      (id: 'protect_village', label: 'Protect the hidden village',   emoji: '🛡️'),
-      (id: 'uncover_mystery', label: 'Uncover the dark mystery',     emoji: '🔍'),
-      (id: 'rescue_master',   label: 'Rescue the trapped master',    emoji: '🙏'),
-      (id: 'ancient_weapon',  label: 'Find the ancient weapon',      emoji: '⚔️'),
-      (id: 'forbidden_technique',label: 'Learn the forbidden technique',emoji: '💨'),
+      (id: 'stolen_scroll',    label: l10n.goalNinjaStolenScroll,      emoji: '📜'),
+      (id: 'shadow_villain',   label: l10n.goalNinjaStopShadowVillain, emoji: '🦹'),
+      (id: 'secret_move',      label: l10n.goalNinjaMasterMove,        emoji: '🥋'),
+      (id: 'protect_village',  label: l10n.goalNinjaProtectVillage,    emoji: '🛡️'),
+      (id: 'uncover_mystery',  label: l10n.goalNinjaUncoverMystery,    emoji: '🔍'),
+      (id: 'rescue_master',    label: l10n.goalNinjaRescueMaster,      emoji: '🙏'),
+      (id: 'ancient_weapon',   label: l10n.goalNinjaFindWeapon,        emoji: '⚔️'),
+      (id: 'forbidden_technique',label: l10n.goalNinjaLearnTechnique,  emoji: '💨'),
+      (id: 'silent_passage',   label: l10n.goalNinjaSilentPassage,     emoji: '🤫'),
+      (id: 'first_test',       label: l10n.goalNinjaFirstTest,         emoji: '✨'),
+      (id: 'tame_tiger',       label: l10n.goalNinjaTameTiger,         emoji: '🐯'),
+      (id: 'restore_balance',  label: l10n.goalNinjaRestoreBalance,    emoji: '☯️'),
     ],
   ),
+
+  // ── EXPLORER ──────────────────────────────────────────────────────────────
   'explorer': _ThemeContext(
     locations: [
-      (id: 'amazon_jungle',   label: 'Amazon Jungle',    emoji: '🌴'),
-      (id: 'arctic_tundra',   label: 'Arctic Tundra',    emoji: '🧊'),
-      (id: 'lost_desert',     label: 'Lost Desert',      emoji: '🏜️'),
-      (id: 'hidden_valley',   label: 'Hidden Valley',    emoji: '🏞️'),
-      (id: 'misty_mountains', label: 'Misty Mountains',  emoji: '⛰️'),
-      (id: 'underwater_caves',label: 'Underwater Caves', emoji: '🤿'),
-      (id: 'floating_islands2',label: 'Floating Islands',emoji: '🏝️'),
-      (id: 'underground_city',label: 'Underground City', emoji: '🏙️'),
+      (id: 'amazon_jungle',     label: l10n.locExplorerAmazonJungle,    emoji: '🌴'),
+      (id: 'arctic_tundra',     label: l10n.locExplorerArcticTundra,    emoji: '🧊'),
+      (id: 'lost_desert',       label: l10n.locExplorerLostDesert,      emoji: '🏜️'),
+      (id: 'hidden_valley',     label: l10n.locExplorerHiddenValley,    emoji: '🏞️'),
+      (id: 'misty_mountains',   label: l10n.locExplorerMistyMountains,  emoji: '⛰️'),
+      (id: 'underwater_caves',  label: l10n.locExplorerUnderwaterCaves, emoji: '🤿'),
+      (id: 'floating_islands2', label: l10n.locExplorerFloatingIslands, emoji: '🏝️'),
+      (id: 'underground_city',  label: l10n.locExplorerUndergroundCity, emoji: '🏙️'),
+      (id: 'cloud_forest',      label: l10n.locExplorerCloudForest,     emoji: '☁️'),
+      (id: 'salt_flats',        label: l10n.locExplorerSaltFlats,       emoji: '🌫️'),
+      (id: 'glowworm_cave',     label: l10n.locExplorerGlowwormCave,    emoji: '✨'),
+      (id: 'sky_canyon',        label: l10n.locExplorerSkyCanyon,       emoji: '🦅'),
     ],
     goals: [
-      (id: 'map_island',      label: 'Map the lost island',      emoji: '🗺️'),
-      (id: 'cross_jungle',    label: 'Cross the dangerous jungle',emoji: '🌿'),
-      (id: 'hidden_temple',   label: 'Discover the hidden temple',emoji: '🏛️'),
-      (id: 'magic_waterfall', label: 'Find the magic waterfall', emoji: '💧'),
-      (id: 'rare_creature',   label: 'Track the rare creature',  emoji: '🦋'),
-      (id: 'mountain_peak',   label: 'Reach the mountain peak',  emoji: '🏔️'),
-      (id: 'lost_tribe',      label: 'Find the lost tribe',      emoji: '🏕️'),
-      (id: 'buried_city',     label: 'Uncover a buried city',    emoji: '🏟️'),
+      (id: 'map_island',       label: l10n.goalExplorerMapIsland,      emoji: '🗺️'),
+      (id: 'cross_jungle',     label: l10n.goalExplorerCrossJungle,    emoji: '🌿'),
+      (id: 'hidden_temple',    label: l10n.goalExplorerDiscoverTemple, emoji: '🏛️'),
+      (id: 'magic_waterfall',  label: l10n.goalExplorerFindWaterfall,  emoji: '💧'),
+      (id: 'rare_creature',    label: l10n.goalExplorerTrackCreature,  emoji: '🦋'),
+      (id: 'mountain_peak',    label: l10n.goalExplorerReachPeak,      emoji: '🏔️'),
+      (id: 'lost_tribe',       label: l10n.goalExplorerFindTribe,      emoji: '🏕️'),
+      (id: 'buried_city',      label: l10n.goalExplorerUncoverCity,    emoji: '🏟️'),
+      (id: 'first_discovery',  label: l10n.goalExplorerFirstDiscovery, emoji: '✨'),
+      (id: 'follow_starmap',   label: l10n.goalExplorerStarMap,        emoji: '🌟'),
+      (id: 'rescue_companion', label: l10n.goalExplorerRescueCompanion,emoji: '🤝'),
+      (id: 'ancient_clue',     label: l10n.goalExplorerAncientClue,    emoji: '🗝️'),
     ],
   ),
+
+  // ── VET ───────────────────────────────────────────────────────────────────
   'vet': _ThemeContext(
     locations: [
-      (id: 'magic_jungle',    label: 'Magic Jungle',     emoji: '🌴'),
-      (id: 'arctic_tundra_v', label: 'Arctic Tundra',    emoji: '🧊'),
-      (id: 'ocean_reef',      label: 'Ocean Reef',       emoji: '🪸'),
-      (id: 'enchanted_forest',label: 'Enchanted Forest', emoji: '🌲'),
-      (id: 'safari_plains',   label: 'Safari Plains',    emoji: '🦁'),
-      (id: 'underground_world',label: 'Underground World',emoji: '🕳️'),
-      (id: 'cloud_sanctuary', label: 'Cloud Sanctuary',  emoji: '☁️'),
-      (id: 'desert_oasis',    label: 'Desert Oasis',     emoji: '🌵'),
+      (id: 'magic_jungle',      label: l10n.locVetMagicJungle,         emoji: '🌴'),
+      (id: 'arctic_tundra_v',   label: l10n.locVetArcticTundra,        emoji: '🧊'),
+      (id: 'ocean_reef',        label: l10n.locVetOceanReef,           emoji: '🪸'),
+      (id: 'enchanted_forest',  label: l10n.locVetEnchantedForest,     emoji: '🌲'),
+      (id: 'safari_plains',     label: l10n.locVetSafariPlains,        emoji: '🦁'),
+      (id: 'underground_world', label: l10n.locVetUndergroundWorld,    emoji: '🕳️'),
+      (id: 'cloud_sanctuary',   label: l10n.locVetCloudSanctuary,      emoji: '☁️'),
+      (id: 'desert_oasis',      label: l10n.locVetDesertOasis,         emoji: '🌵'),
+      (id: 'butterfly_meadow',  label: l10n.locVetButterflyMeadow,     emoji: '🦋'),
+      (id: 'snowy_pinewood',    label: l10n.locVetSnowyPinewood,       emoji: '🌲'),
+      (id: 'firefly_swamp',     label: l10n.locVetFireflySwamp,        emoji: '🐸'),
+      (id: 'rescue_clinic',     label: l10n.locVetRescueClinic,        emoji: '🏥'),
     ],
     goals: [
-      (id: 'heal_dragon',     label: 'Heal the sick dragon',         emoji: '🐉'),
-      (id: 'baby_whale',      label: 'Save a lost baby whale',       emoji: '🐳'),
-      (id: 'scared_wolf',     label: 'Help the scared wolf',         emoji: '🐺'),
-      (id: 'magic_fever',     label: 'Cure the magical fever',       emoji: '💊'),
-      (id: 'flood_rescue',    label: 'Rescue animals from flood',    emoji: '🌊'),
-      (id: 'animal_family',   label: 'Find the lost animal family',  emoji: '🐾'),
-      (id: 'invisible_creature',label: 'Find the invisible creature',emoji: '👁️'),
-      (id: 'freezing_birds',  label: 'Warm up the freezing birds',   emoji: '🐦'),
+      (id: 'heal_dragon',      label: l10n.goalVetHealDragon,          emoji: '🐉'),
+      (id: 'baby_whale',       label: l10n.goalVetSaveBabyWhale,       emoji: '🐳'),
+      (id: 'scared_wolf',      label: l10n.goalVetHelpWolf,            emoji: '🐺'),
+      (id: 'magic_fever',      label: l10n.goalVetCureFever,           emoji: '💊'),
+      (id: 'flood_rescue',     label: l10n.goalVetRescueAnimals,       emoji: '🌊'),
+      (id: 'animal_family',    label: l10n.goalVetFindAnimalFamily,    emoji: '🐾'),
+      (id: 'invisible_creature',label: l10n.goalVetInvisibleCreature,  emoji: '👁️'),
+      (id: 'freezing_birds',   label: l10n.goalVetWarmBirds,           emoji: '🐦'),
+      (id: 'butterfly_wing',   label: l10n.goalVetButterflyWing,       emoji: '🦋'),
+      (id: 'lost_puppy',       label: l10n.goalVetLostPuppy,           emoji: '🐶'),
+      (id: 'shy_unicorn',      label: l10n.goalVetShyUnicorn,          emoji: '🦄'),
+      (id: 'sleeping_bear',    label: l10n.goalVetSleepingBear,        emoji: '🐻'),
     ],
   ),
+
+  // ── INVENTOR ──────────────────────────────────────────────────────────────
   'inventor': _ThemeContext(
     locations: [
-      (id: 'sky_workshop',    label: 'Sky Workshop',     emoji: '⚙️'),
-      (id: 'underground_factory',label: 'Underground Factory',emoji: '🏭'),
-      (id: 'magic_library',   label: 'Magic Library',    emoji: '📚'),
-      (id: 'crystal_mountain',label: 'Crystal Mountain', emoji: '💎'),
-      (id: 'future_museum',   label: 'Future Museum',    emoji: '🏛️'),
-      (id: 'cloud_workshop',  label: 'Cloud Workshop',   emoji: '☁️'),
-      (id: 'robot_city',      label: 'Robot City',       emoji: '🤖'),
-      (id: 'volcano_forge',   label: 'Volcano Forge',    emoji: '🌋'),
+      (id: 'sky_workshop',         label: l10n.locInventorSkyWorkshop,        emoji: '⚙️'),
+      (id: 'underground_factory',  label: l10n.locInventorUndergroundFactory, emoji: '🏭'),
+      (id: 'magic_library',        label: l10n.locInventorMagicLibrary,       emoji: '📚'),
+      (id: 'crystal_mountain',     label: l10n.locInventorCrystalMountain,    emoji: '💎'),
+      (id: 'future_museum',        label: l10n.locInventorFutureMuseum,       emoji: '🏛️'),
+      (id: 'cloud_workshop',       label: l10n.locInventorCloudWorkshop,      emoji: '☁️'),
+      (id: 'robot_city',           label: l10n.locInventorRobotCity,          emoji: '🤖'),
+      (id: 'volcano_forge',        label: l10n.locInventorVolcanoForge,       emoji: '🌋'),
+      (id: 'tinker_market',        label: l10n.locInventorTinkerMarket,       emoji: '🔧'),
+      (id: 'gear_garden',          label: l10n.locInventorGearGarden,         emoji: '⚙️'),
+      (id: 'lightning_lab',        label: l10n.locInventorLightningLab,       emoji: '⚡'),
+      (id: 'paper_workshop',       label: l10n.locInventorPaperWorkshop,      emoji: '📄'),
     ],
     goals: [
-      (id: 'magical_machine', label: 'Build the magical machine',    emoji: '⚙️'),
-      (id: 'fix_broken_city', label: 'Fix the broken city',         emoji: '🏙️'),
-      (id: 'rainbow_bridge_i',label: 'Create a rainbow bridge',     emoji: '🌈'),
-      (id: 'impossible_puzzle',label: 'Solve the impossible puzzle', emoji: '🧩'),
-      (id: 'power_lighthouse',label: 'Power up the lighthouse',     emoji: '🏮'),
-      (id: 'dream_toy',       label: 'Build the dream toy',         emoji: '🪁'),
-      (id: 'flying_ship',     label: 'Finish the flying ship',      emoji: '✈️'),
-      (id: 'robot_friend',    label: 'Wake up a sleeping robot',    emoji: '🤖'),
+      (id: 'magical_machine',  label: l10n.goalInventorBuildMachine,    emoji: '⚙️'),
+      (id: 'fix_broken_city',  label: l10n.goalInventorFixCity,         emoji: '🏙️'),
+      (id: 'rainbow_bridge_i', label: l10n.goalInventorRainbowBridge,   emoji: '🌈'),
+      (id: 'impossible_puzzle',label: l10n.goalInventorSolvePuzzle,     emoji: '🧩'),
+      (id: 'power_lighthouse', label: l10n.goalInventorPowerLighthouse, emoji: '🏮'),
+      (id: 'dream_toy',        label: l10n.goalInventorDreamToy,        emoji: '🪁'),
+      (id: 'flying_ship',      label: l10n.goalInventorFlyingShip,      emoji: '✈️'),
+      (id: 'robot_friend',     label: l10n.goalInventorWakeRobot,       emoji: '🤖'),
+      (id: 'first_invention',  label: l10n.goalInventorFirstInvention,  emoji: '💡'),
+      (id: 'fix_clock_tower',  label: l10n.goalInventorFixClockTower,   emoji: '🕰️'),
+      (id: 'paper_creature',   label: l10n.goalInventorPaperCreature,   emoji: '📄'),
+      (id: 'kite_storm',       label: l10n.goalInventorKiteStorm,       emoji: '🪁'),
     ],
   ),
+
+  // ── PALEONTOLOGIST ────────────────────────────────────────────────────────
   'paleontologist': _ThemeContext(
     locations: [
-      (id: 'dino_valley',     label: 'Dino Valley',      emoji: '🦕'),
-      (id: 'ancient_desert',  label: 'Ancient Desert',   emoji: '🏜️'),
-      (id: 'underground_cave',label: 'Underground Cave', emoji: '🕳️'),
-      (id: 'time_portal',     label: 'Time Portal',      emoji: '⏳'),
-      (id: 'fossil_beach',    label: 'Fossil Beach',     emoji: '🐚'),
-      (id: 'prehistoric_forest',label: 'Prehistoric Forest',emoji: '🌿'),
-      (id: 'amber_jungle',    label: 'Amber Jungle',     emoji: '🌳'),
-      (id: 'volcanic_badlands',label: 'Volcanic Badlands',emoji: '🌋'),
+      (id: 'dino_valley',        label: l10n.locDinoHunterDinoValley,        emoji: '🦕'),
+      (id: 'ancient_desert',     label: l10n.locDinoHunterAncientDesert,     emoji: '🏜️'),
+      (id: 'underground_cave',   label: l10n.locDinoHunterUndergroundCave,   emoji: '🕳️'),
+      (id: 'time_portal',        label: l10n.locDinoHunterTimePortal,        emoji: '⏳'),
+      (id: 'fossil_beach',       label: l10n.locDinoHunterFossilBeach,       emoji: '🐚'),
+      (id: 'prehistoric_forest', label: l10n.locDinoHunterPrehistoricForest, emoji: '🌿'),
+      (id: 'amber_jungle',       label: l10n.locDinoHunterAmberJungle,       emoji: '🌳'),
+      (id: 'volcanic_badlands',  label: l10n.locDinoHunterVolcanicBadlands,  emoji: '🌋'),
+      (id: 'tar_pit',            label: l10n.locDinoHunterTarPit,            emoji: '🕳️'),
+      (id: 'frozen_tundra',      label: l10n.locDinoHunterFrozenTundra,      emoji: '🧊'),
+      (id: 'museum_archive',     label: l10n.locDinoHunterMuseumArchive,     emoji: '🏛️'),
+      (id: 'shallow_lagoon',     label: l10n.locDinoHunterShallowLagoon,     emoji: '🌊'),
     ],
     goals: [
-      (id: 'hidden_fossil',   label: 'Uncover the hidden fossil',   emoji: '🦴'),
-      (id: 'baby_dino',       label: 'Befriend a baby dinosaur',    emoji: '🦖'),
-      (id: 'ancient_mystery', label: 'Solve the ancient mystery',   emoji: '🔍'),
-      (id: 'save_dino_eggs',  label: 'Save the dino eggs',          emoji: '🥚'),
-      (id: 'ancient_language',label: 'Decode ancient language',     emoji: '📜'),
-      (id: 'time_rescue',     label: 'Rescue the time traveler',    emoji: '⏰'),
-      (id: 'meteor_discovery',label: 'Find the meteor crater',      emoji: '☄️'),
-      (id: 'dino_stampede',   label: 'Stop the dino stampede',      emoji: '🦏'),
+      (id: 'hidden_fossil',    label: l10n.goalDinoHunterHiddenFossil,   emoji: '🦴'),
+      (id: 'baby_dino',        label: l10n.goalDinoHunterBabyDino,       emoji: '🦖'),
+      (id: 'ancient_mystery',  label: l10n.goalDinoHunterSolveMystery,   emoji: '🔍'),
+      (id: 'save_dino_eggs',   label: l10n.goalDinoHunterSaveDinoEggs,   emoji: '🥚'),
+      (id: 'ancient_language', label: l10n.goalDinoHunterDecodeLanguage, emoji: '📜'),
+      (id: 'time_rescue',      label: l10n.goalDinoHunterRescueTraveler, emoji: '⏰'),
+      (id: 'meteor_discovery', label: l10n.goalDinoHunterMeteorCrater,   emoji: '☄️'),
+      (id: 'dino_stampede',    label: l10n.goalDinoHunterStopStampede,   emoji: '🦏'),
+      (id: 'first_fossil',     label: l10n.goalDinoHunterFirstFossil,    emoji: '✨'),
+      (id: 'mammoth_friend',   label: l10n.goalDinoHunterMammothFriend,  emoji: '🦣'),
+      (id: 'sky_pterodactyl',  label: l10n.goalDinoHunterPterodactyl,    emoji: '🦅'),
+      (id: 'lost_skeleton',    label: l10n.goalDinoHunterLostSkeleton,   emoji: '🦴'),
     ],
   ),
+
+  // ── FIREFIGHTER ───────────────────────────────────────────────────────────
   'firefighter': _ThemeContext(
     locations: [
-      (id: 'burning_forest',  label: 'Burning Forest',   emoji: '🔥'),
-      (id: 'magic_city',      label: 'Magic City',       emoji: '🏙️'),
-      (id: 'volcano_island_f',label: 'Volcano Island',   emoji: '🌋'),
-      (id: 'crystal_tower',   label: 'Crystal Tower',    emoji: '🗼'),
-      (id: 'cloud_town',      label: 'Cloud Town',       emoji: '☁️'),
-      (id: 'ancient_ruins_f', label: 'Ancient Ruins',    emoji: '🏛️'),
-      (id: 'haunted_mansion', label: 'Haunted Mansion',  emoji: '🏚️'),
-      (id: 'ice_palace',      label: 'Ice Palace',       emoji: '❄️'),
+      (id: 'burning_forest',   label: l10n.locFirefighterBurningForest,  emoji: '🔥'),
+      (id: 'magic_city',       label: l10n.locFirefighterMagicCity,      emoji: '🏙️'),
+      (id: 'volcano_island_f', label: l10n.locFirefighterVolcanoIsland,  emoji: '🌋'),
+      (id: 'crystal_tower',    label: l10n.locFirefighterCrystalTower,   emoji: '🗼'),
+      (id: 'cloud_town',       label: l10n.locFirefighterCloudTown,      emoji: '☁️'),
+      (id: 'ancient_ruins_f',  label: l10n.locFirefighterAncientRuins,   emoji: '🏛️'),
+      (id: 'haunted_mansion',  label: l10n.locFirefighterHauntedMansion, emoji: '🏚️'),
+      (id: 'ice_palace',       label: l10n.locFirefighterIcePalace,      emoji: '❄️'),
+      (id: 'rooftop_district', label: l10n.locFirefighterRooftopDistrict,emoji: '🏗️'),
+      (id: 'tunnel_network',   label: l10n.locFirefighterTunnelNetwork,  emoji: '🚇'),
+      (id: 'circus_tent',      label: l10n.locFirefighterCircusTent,     emoji: '🎪'),
+      (id: 'lighthouse_cliff', label: l10n.locFirefighterLighthouse,     emoji: '🏮'),
     ],
     goals: [
-      (id: 'stop_fire',       label: 'Stop the forest fire',     emoji: '🌲'),
-      (id: 'rescue_family',   label: 'Rescue the trapped family',emoji: '👨‍👩‍👦'),
-      (id: 'put_out_volcano', label: 'Put out the volcano',      emoji: '🌋'),
-      (id: 'save_library',    label: 'Save the magic library',   emoji: '📚'),
-      (id: 'animals_escape',  label: 'Help animals escape',      emoji: '🐾'),
-      (id: 'protect_cloud',   label: 'Protect the cloud town',   emoji: '☁️'),
-      (id: 'magic_hose',      label: 'Find the magic hose',      emoji: '💦'),
-      (id: 'ice_dragon_fire', label: 'Freeze the fire dragon',   emoji: '🐉'),
+      (id: 'stop_fire',        label: l10n.goalFirefighterStopFire,        emoji: '🌲'),
+      (id: 'rescue_family',    label: l10n.goalFirefighterRescueFamily,    emoji: '👨‍👩‍👦'),
+      (id: 'put_out_volcano',  label: l10n.goalFirefighterPutOutVolcano,   emoji: '🌋'),
+      (id: 'save_library',     label: l10n.goalFirefighterSaveLibrary,     emoji: '📚'),
+      (id: 'animals_escape',   label: l10n.goalFirefighterAnimalsEscape,   emoji: '🐾'),
+      (id: 'protect_cloud',    label: l10n.goalFirefighterProtectCloud,    emoji: '☁️'),
+      (id: 'magic_hose',       label: l10n.goalFirefighterMagicHose,       emoji: '💦'),
+      (id: 'ice_dragon_fire',  label: l10n.goalFirefighterFreezeDragon,    emoji: '🐉'),
+      (id: 'first_call',       label: l10n.goalFirefighterFirstCall,       emoji: '🚒'),
+      (id: 'rescue_kitten',    label: l10n.goalFirefighterRescueKitten,    emoji: '🐱'),
+      (id: 'calm_circus',      label: l10n.goalFirefighterCalmCircus,      emoji: '🎪'),
+      (id: 'storm_lighthouse', label: l10n.goalFirefighterStormLighthouse, emoji: '🏮'),
     ],
   ),
+
+  // ── ROBOT PILOT ───────────────────────────────────────────────────────────
   'robot_pilot': _ThemeContext(
     locations: [
-      (id: 'robot_space',     label: 'Space Station',    emoji: '🛸'),
-      (id: 'robot_factory',   label: 'Robot Factory',    emoji: '🏭'),
-      (id: 'future_city_r',   label: 'Future City',      emoji: '🏙️'),
-      (id: 'cloud_highway',   label: 'Cloud Highway',    emoji: '☁️'),
-      (id: 'digital_world',   label: 'Digital World',    emoji: '💻'),
-      (id: 'crystal_nebula',  label: 'Crystal Nebula',   emoji: '🌌'),
-      (id: 'giant_hangar',    label: 'Giant Hangar',     emoji: '🏗️'),
-      (id: 'ion_storm_zone',  label: 'Ion Storm Zone',   emoji: '⚡'),
+      (id: 'robot_space',      label: l10n.locRobotPilotSpaceStation,  emoji: '🛸'),
+      (id: 'robot_factory',    label: l10n.locRobotPilotRobotFactory,  emoji: '🏭'),
+      (id: 'future_city_r',    label: l10n.locRobotPilotFutureCity,    emoji: '🏙️'),
+      (id: 'cloud_highway',    label: l10n.locRobotPilotCloudHighway,  emoji: '☁️'),
+      (id: 'digital_world',    label: l10n.locRobotPilotDigitalWorld,  emoji: '💻'),
+      (id: 'crystal_nebula',   label: l10n.locRobotPilotCrystalNebula, emoji: '🌌'),
+      (id: 'giant_hangar',     label: l10n.locRobotPilotGiantHangar,   emoji: '🏗️'),
+      (id: 'ion_storm_zone',   label: l10n.locRobotPilotIonStorm,      emoji: '⚡'),
+      (id: 'scrap_yard',       label: l10n.locRobotPilotScrapYard,     emoji: '🔩'),
+      (id: 'quantum_arena',    label: l10n.locRobotPilotQuantumArena,  emoji: '⚛️'),
+      (id: 'data_canyon',      label: l10n.locRobotPilotDataCanyon,    emoji: '📊'),
+      (id: 'orbital_garden',   label: l10n.locRobotPilotOrbitalGarden, emoji: '🌱'),
     ],
     goals: [
-      (id: 'repair_satellite',label: 'Repair the satellite',      emoji: '🛰️'),
-      (id: 'asteroid_navigate',label: 'Navigate an asteroid belt',emoji: '☄️'),
-      (id: 'lost_robot',      label: 'Rescue the lost robot',     emoji: '🤖'),
-      (id: 'flying_race',     label: 'Win the flying race',       emoji: '🏆'),
-      (id: 'alien_signal',    label: 'Decode the alien signal',   emoji: '📡'),
-      (id: 'prevent_crash',   label: 'Prevent the crash',         emoji: '💥'),
-      (id: 'power_core',      label: 'Restore the power core',    emoji: '⚡'),
-      (id: 'robot_uprising',  label: 'Calm the robot uprising',   emoji: '🦾'),
+      (id: 'repair_satellite', label: l10n.goalRobotPilotRepairSatellite, emoji: '🛰️'),
+      (id: 'asteroid_navigate',label: l10n.goalRobotPilotNavigateAsteroid,emoji: '☄️'),
+      (id: 'lost_robot',       label: l10n.goalRobotPilotRescueRobot,     emoji: '🤖'),
+      (id: 'flying_race',      label: l10n.goalRobotPilotWinRace,         emoji: '🏆'),
+      (id: 'alien_signal',     label: l10n.goalRobotPilotDecodeSignal,    emoji: '📡'),
+      (id: 'prevent_crash',    label: l10n.goalRobotPilotPreventCrash,    emoji: '💥'),
+      (id: 'power_core',       label: l10n.goalRobotPilotRestorePower,    emoji: '⚡'),
+      (id: 'robot_uprising',   label: l10n.goalRobotPilotCalmRobots,      emoji: '🦾'),
+      (id: 'first_flight',     label: l10n.goalRobotPilotFirstFlight,     emoji: '✨'),
+      (id: 'rebuild_friend',   label: l10n.goalRobotPilotRebuildFriend,   emoji: '🔧'),
+      (id: 'data_mystery',     label: l10n.goalRobotPilotDataMystery,     emoji: '🔍'),
+      (id: 'tend_garden',      label: l10n.goalRobotPilotTendGarden,      emoji: '🌱'),
     ],
   ),
 };
 
-// ── Fallback context (if theme not found) ─────────────────────────────────────
-
-const _defaultContext = _ThemeContext(
+_ThemeContext _buildDefaultContext(AppLocalizations l10n) => _ThemeContext(
   locations: [
-    (id: 'magic_forest',  label: 'Magic Forest',  emoji: '🌲'),
-    (id: 'cloud_kingdom', label: 'Cloud Kingdom', emoji: '☁️'),
-    (id: 'ocean',         label: 'Deep Ocean',    emoji: '🌊'),
-    (id: 'castle',        label: 'Magic Castle',  emoji: '🏰'),
-    (id: 'volcano',       label: 'Volcano Island',emoji: '🌋'),
-    (id: 'space',         label: 'Outer Space',   emoji: '🌌'),
+    (id: 'magic_forest',  label: l10n.locDefaultMagicForest,   emoji: '🌲'),
+    (id: 'cloud_kingdom', label: l10n.locDefaultCloudKingdom,  emoji: '☁️'),
+    (id: 'ocean',         label: l10n.locDefaultDeepOcean,     emoji: '🌊'),
+    (id: 'castle',        label: l10n.locDefaultMagicCastle,   emoji: '🏰'),
+    (id: 'volcano',       label: l10n.locDefaultVolcanoIsland, emoji: '🌋'),
+    (id: 'space',         label: l10n.locDefaultOuterSpace,    emoji: '🌌'),
   ],
   goals: [
-    (id: 'find_treasure', label: 'Find the treasure',    emoji: '💎'),
-    (id: 'rescue_friend', label: 'Rescue a friend',      emoji: '🤝'),
-    (id: 'defeat_monster',label: 'Befriend a monster',   emoji: '👾'),
-    (id: 'solve_mystery', label: 'Solve a mystery',      emoji: '🔍'),
-    (id: 'save_planet',   label: 'Save the land',        emoji: '🌍'),
-    (id: 'win_race',      label: 'Win the big race',     emoji: '🏆'),
+    (id: 'find_treasure',  label: l10n.goalDefaultFindTreasure,    emoji: '💎'),
+    (id: 'rescue_friend',  label: l10n.goalDefaultRescueFriend,    emoji: '🤝'),
+    (id: 'defeat_monster', label: l10n.goalDefaultBefriendMonster, emoji: '👾'),
+    (id: 'solve_mystery',  label: l10n.goalDefaultSolveMystery,    emoji: '🔍'),
+    (id: 'save_planet',    label: l10n.goalDefaultSaveLand,        emoji: '🌍'),
+    (id: 'win_race',       label: l10n.goalDefaultWinRace,         emoji: '🏆'),
   ],
 );
 
-_ThemeContext _contextFor(String theme) =>
-    _themeContexts[theme] ?? _defaultContext;
+_ThemeContext _ctxFor(String theme, Map<String, _ThemeContext> contexts, AppLocalizations l10n) =>
+    contexts[theme] ?? _buildDefaultContext(l10n);
+
+List<String> _buildTeachingTopics(AppLocalizations l10n) => [
+  l10n.teachingBravery,
+  l10n.teachingKindness,
+  l10n.teachingSharing,
+  l10n.teachingHonesty,
+  l10n.teachingPatience,
+  l10n.teachingFriendship,
+  l10n.teachingPerseverance,
+  l10n.teachingCreativity,
+];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -437,21 +692,17 @@ class AdventureSetupScreen extends ConsumerStatefulWidget {
 class _AdventureSetupScreenState extends ConsumerState<AdventureSetupScreen> {
   int _step = 0;
 
-  String _theme    = _themes.first.id;
-  String _location = _contextFor(_themes.first.id).locations.first.id;
-  String _goal     = _contextFor(_themes.first.id).goals.first.id;
+  String _theme    = _kThemeIds.first.id;
+  String _location = _kThemeFirstIds[_kThemeIds.first.id]!.$1;
+  String _goal     = _kThemeFirstIds[_kThemeIds.first.id]!.$2;
 
-  // Companion selection (null = solo hero)
   BuddyType? _selectedCompanionType;
   String? _buddyPhotoStoragePath;
   String? _buddyCompanionName;
 
-  // Debug: image count (only relevant when debugModeProvider is on)
   int _debugImageCount = 0;
 
   final _teachingController = TextEditingController();
-
-  _ThemeContext get _ctx => _contextFor(_theme);
 
   @override
   void dispose() {
@@ -460,20 +711,20 @@ class _AdventureSetupScreenState extends ConsumerState<AdventureSetupScreen> {
   }
 
   void _selectTheme(String id) {
-    final ctx = _contextFor(id);
+    final firstIds = _kThemeFirstIds[id];
     setState(() {
       _theme    = id;
-      _location = ctx.locations.first.id;
-      _goal     = ctx.goals.first.id;
+      _location = firstIds?.$1 ?? 'magic_forest';
+      _goal     = firstIds?.$2 ?? 'find_treasure';
       _step     = 1;
     });
   }
 
   void _selectCompanion({BuddyType? type, String? photoStoragePath, String? displayName}) {
     setState(() {
-      _selectedCompanionType  = type;
-      _buddyPhotoStoragePath  = photoStoragePath;
-      _buddyCompanionName     = displayName;
+      _selectedCompanionType = type;
+      _buddyPhotoStoragePath = photoStoragePath;
+      _buddyCompanionName    = displayName;
       _step = 2;
     });
   }
@@ -496,19 +747,22 @@ class _AdventureSetupScreenState extends ConsumerState<AdventureSetupScreen> {
     if (_step > 0) setState(() => _step--);
   }
 
-  void _startGeneration() {
-    final theme    = _themes.firstWhere((t) => t.id == _theme);
-    final location = _ctx.locations.firstWhere((l) => l.id == _location);
-    final goal     = _ctx.goals.firstWhere((g) => g.id == _goal);
+  void _startGeneration(AppLocalizations l10n) {
+    final contexts = _buildThemeContexts(l10n);
+    final themes   = _buildThemes(l10n);
+    final ctx      = _ctxFor(_theme, contexts, l10n);
 
-    // Resolve latest buddy data at generation time
+    final theme    = themes.firstWhere((t) => t.id == _theme);
+    final location = ctx.locations.firstWhere((l) => l.id == _location);
+    final goal     = ctx.goals.firstWhere((g) => g.id == _goal);
+
     String? buddyStoragePath = _buddyPhotoStoragePath;
     String? buddyDisplayName = _buddyCompanionName;
     if (_selectedCompanionType != null) {
       final buddies = ref.read(buddyListProvider).valueOrNull ?? [];
       final buddy = buddies.where((b) => b.type == _selectedCompanionType).firstOrNull;
       buddyStoragePath = buddy?.photoStoragePath;
-      buddyDisplayName = buddy?.displayName ?? _selectedCompanionType!.label;
+      buddyDisplayName = buddy?.displayName ?? _selectedCompanionType!.localizedLabel(l10n);
     }
 
     final debugMode = ref.read(debugModeProvider);
@@ -517,6 +771,7 @@ class _AdventureSetupScreenState extends ConsumerState<AdventureSetupScreen> {
       'heroId': widget.heroId,
       'setup': {
         'theme':                 theme.label,
+        'themeId':               _theme, // NEW: pass id so backend can detect cosy_home
         'companion':             _selectedCompanionType?.id,
         'companionName':         buddyDisplayName,
         'location':              location.label,
@@ -533,27 +788,18 @@ class _AdventureSetupScreenState extends ConsumerState<AdventureSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const steps = [
-      _StepSpec(
-        question: 'Who do you want to be tonight?',
-        hint: 'Step 1 of 4',
-      ),
-      _StepSpec(
-        question: 'Who comes with you?',
-        hint: 'Step 2 of 4',
-      ),
-      _StepSpec(
-        question: 'Where does the adventure happen?',
-        hint: 'Step 3 of 4',
-      ),
-      _StepSpec(
-        question: 'What do you want to find?',
-        hint: 'Step 4 of 4',
-      ),
-      _StepSpec(
-        question: 'Any final touches?',
-        hint: 'Optional',
-      ),
+    final l10n     = AppLocalizations.of(context)!;
+    final contexts = _buildThemeContexts(l10n);
+    final themes   = _buildThemes(l10n);
+    final ctx      = _ctxFor(_theme, contexts, l10n);
+    final topics   = _buildTeachingTopics(l10n);
+
+    final steps = [
+      _StepSpec(question: l10n.adventureStep1Question, hint: l10n.adventureStepHint1),
+      _StepSpec(question: l10n.adventureStep2Question, hint: l10n.adventureStepHint2),
+      _StepSpec(question: l10n.adventureStep3Question, hint: l10n.adventureStepHint3),
+      _StepSpec(question: l10n.adventureStep4Question, hint: l10n.adventureStepHint4),
+      _StepSpec(question: l10n.adventureStep5Question, hint: l10n.adventureStepHintOptional),
     ];
 
     return Scaffold(
@@ -611,7 +857,7 @@ class _AdventureSetupScreenState extends ConsumerState<AdventureSetupScreen> {
                   child: [
                     // Step 0: Theme
                     _TileGrid(
-                      items: _themes,
+                      items: themes,
                       selected: _theme,
                       onSelect: _selectTheme,
                     ),
@@ -622,19 +868,23 @@ class _AdventureSetupScreenState extends ConsumerState<AdventureSetupScreen> {
                     ),
                     // Step 2: Location
                     _TileGrid(
-                      items: _ctx.locations,
+                      items: ctx.locations,
                       selected: _location,
                       onSelect: _selectLocation,
                     ),
                     // Step 3: Goal
                     _TileGrid(
-                      items: _ctx.goals,
+                      items: ctx.goals,
                       selected: _goal,
                       onSelect: _selectGoal,
                     ),
-                    // Step 4: Teaching moment (parent) + optional debug image count
+                    // Step 4: Teaching moment + optional debug image count
                     _TeachingStep(
                       controller: _teachingController,
+                      topics: topics,
+                      headerLabel: l10n.adventureTeachingMomentHeader,
+                      helpLabel: l10n.adventureTeachingMomentHelp,
+                      placeholderLabel: l10n.adventureTeachingMomentPlaceholder,
                       debugImageCount: ref.watch(debugModeProvider) ? _debugImageCount : null,
                       onDebugImageCountChanged: (v) => setState(() => _debugImageCount = v),
                     ),
@@ -648,8 +898,8 @@ class _AdventureSetupScreenState extends ConsumerState<AdventureSetupScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
                 child: FilledButton(
-                  onPressed: _startGeneration,
-                  child: const Text('Create story!'),
+                  onPressed: () => _startGeneration(l10n),
+                  child: Text(l10n.adventureCreateStoryButton),
                 ),
               ),
           ],
@@ -692,6 +942,7 @@ class _CompanionPickerStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final buddyMap = ref.watch(buddyListProvider).when(
       data: (list) => {for (final b in list) b.type: b},
       loading: () => <BuddyType, Buddy>{},
@@ -720,7 +971,7 @@ class _CompanionPickerStep extends ConsumerWidget {
                 const Text('🌟', style: TextStyle(fontSize: 32)),
                 const SizedBox(height: 6),
                 Text(
-                  'Solo Hero',
+                  l10n.adventureSoloHero,
                   style: AppTextStyles.bodySm(
                     color: selectedType == null ? AppColors.gold500 : AppColors.textSecondary,
                   ),
@@ -758,6 +1009,7 @@ class _CompanionTypeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final photoUrl = buddy?.photoThumbUrl ?? buddy?.photoUrl;
     return _BuddyTileShell(
       selected: selected,
@@ -780,7 +1032,7 @@ class _CompanionTypeTile extends StatelessWidget {
             Text(type.emoji, style: const TextStyle(fontSize: 30)),
           const SizedBox(height: 4),
           Text(
-            buddy?.displayName ?? type.label,
+            buddy?.displayName ?? type.localizedLabel(l10n),
             style: AppTextStyles.bodySm(
               color: selected ? AppColors.gold500 : AppColors.textSecondary,
             ),
@@ -846,7 +1098,7 @@ class _BuddyTileShell extends StatelessWidget {
   }
 }
 
-// ── Edit-buddy bottom sheet ───────────────────────────────────────────────────
+// ── Edit-buddy bottom sheet (UNCHANGED from previous version) ───────────────
 
 class _EditBuddySheet extends ConsumerStatefulWidget {
   const _EditBuddySheet({required this.type, this.existing, this.onContinue});
@@ -909,6 +1161,7 @@ class _EditBuddySheetState extends ConsumerState<_EditBuddySheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final existingPhotoUrl = widget.existing?.photoUrl;
     final hasPhoto = _photo != null || (existingPhotoUrl != null && existingPhotoUrl.isNotEmpty);
 
@@ -936,7 +1189,8 @@ class _EditBuddySheetState extends ConsumerState<_EditBuddySheet> {
             children: [
               Text(widget.type.emoji, style: const TextStyle(fontSize: 24)),
               const SizedBox(width: 8),
-              Text(widget.type.label, style: AppTextStyles.displaySm(color: AppColors.textPrimary)),
+              Text(widget.type.localizedLabel(l10n),
+                  style: AppTextStyles.displaySm(color: AppColors.textPrimary)),
             ],
           ),
           const SizedBox(height: 24),
@@ -1040,7 +1294,7 @@ class _EditBuddySheetState extends ConsumerState<_EditBuddySheet> {
   }
 }
 
-// ── Tile grid §3.4 ───────────────────────────────────────────────────────────
+// ── Tile grid ─────────────────────────────────────────────────────────────────
 
 class _TileGrid extends StatelessWidget {
   const _TileGrid({
@@ -1141,15 +1395,23 @@ class _AdventureTile extends StatelessWidget {
   }
 }
 
-// ── Teaching moment step ──────────────────────────────────────────────────────
+// ── Teaching moment step (UNCHANGED) ─────────────────────────────────────────
 
 class _TeachingStep extends StatefulWidget {
   const _TeachingStep({
     required this.controller,
+    required this.topics,
+    required this.headerLabel,
+    required this.helpLabel,
+    required this.placeholderLabel,
     this.debugImageCount,
     this.onDebugImageCountChanged,
   });
   final TextEditingController controller;
+  final List<String> topics;
+  final String headerLabel;
+  final String helpLabel;
+  final String placeholderLabel;
   final int? debugImageCount;
   final ValueChanged<int>? onDebugImageCountChanged;
 
@@ -1158,12 +1420,6 @@ class _TeachingStep extends StatefulWidget {
 }
 
 class _TeachingStepState extends State<_TeachingStep> {
-  static const _topics = [
-    'Bravery', 'Kindness', 'Sharing',
-    'Honesty', 'Patience', 'Friendship',
-    'Perseverance', 'Creativity',
-  ];
-
   String? _selectedTopic;
 
   @override
@@ -1180,7 +1436,7 @@ class _TeachingStepState extends State<_TeachingStep> {
 
   void _onControllerChanged() {
     final text = widget.controller.text;
-    final match = _topics.contains(text) ? text : null;
+    final match = widget.topics.contains(text) ? text : null;
     if (match != _selectedTopic) setState(() => _selectedTopic = match);
   }
 
@@ -1197,19 +1453,19 @@ class _TeachingStepState extends State<_TeachingStep> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Add a teaching moment',
+            widget.headerLabel,
             style: AppTextStyles.displaySm(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),
           Text(
-            'Optional, for grown-ups. The story will weave it in gently.',
+            widget.helpLabel,
             style: AppTextStyles.bodyMd(color: AppColors.textTertiary),
           ),
           const SizedBox(height: 24),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _topics.map((topic) => _TeachingChip(
+            children: widget.topics.map((topic) => _TeachingChip(
               label: topic,
               selected: _selectedTopic == topic,
               onTap: () => _selectTopic(topic),
@@ -1220,7 +1476,7 @@ class _TeachingStepState extends State<_TeachingStep> {
             controller: widget.controller,
             style: AppTextStyles.bodyMd(color: AppColors.textPrimary),
             decoration: InputDecoration(
-              hintText: 'or type your own…',
+              hintText: widget.placeholderLabel,
               hintStyle: AppTextStyles.bodyMd(color: AppColors.textFaint),
             ),
             textCapitalization: TextCapitalization.sentences,

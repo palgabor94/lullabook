@@ -16,6 +16,7 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/paywall/paywall_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/debug/debug_screen.dart';
 import '../../features/story_generation/story_generating_screen.dart';
 import '../../features/story_reader/story_reader_screen.dart';
 import '../../features/tonight_adventure/adventure_setup_screen.dart';
@@ -33,8 +34,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (loc == '/splash') return null;
       if (loc.startsWith('/preview')) return null;
+      if (loc.startsWith('/auth')) return null;
 
-      if (!isLoggedIn && !loc.startsWith('/auth')) return '/auth';
+      if (!isLoggedIn) return '/preview/intro';
       if (isLoggedIn && loc.startsWith('/auth')) return '/home';
       return null;
     },
@@ -47,9 +49,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Auth
       GoRoute(
         path: '/auth',
-        builder: (_, state) => AuthScreen(
-          pendingPreviewId: (state.extra as Map?)?['previewId'] as String?,
-        ),
+        builder: (_, state) {
+          final extra = state.extra as Map?;
+          return AuthScreen(
+            pendingPreviewId: extra?['previewId'] as String?,
+            pendingPreviewResult: extra?['previewResult'] as GeneratePreviewResult?,
+          );
+        },
       ),
 
       // F-0 Preview flow (no auth required)
@@ -118,12 +124,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       GoRoute(
+        path: '/debug',
+        builder: (_, __) => const DebugScreen(),
+      ),
+
+      GoRoute(
         path: '/story/generating',
         builder: (_, state) {
           final e = state.extra as Map<String, dynamic>;
           return StoryGeneratingScreen(
             heroId: e['heroId'] as String,
             setup: e['setup'] as Map<String, dynamic>,
+            debugMode: e['debugMode'] as bool? ?? false,
+            debugImageCount: e['debugImageCount'] as int?,
           );
         },
       ),

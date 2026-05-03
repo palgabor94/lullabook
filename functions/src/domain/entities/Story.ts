@@ -10,7 +10,7 @@ export interface StoryPage {
 }
 
 export interface GenerationMetadata {
-  imageProvider: 'runninghub';
+  imageProvider: string;
   runningHubTaskIds: string[];
   retryCount: number;
   totalCostUsd: number;
@@ -25,13 +25,10 @@ export interface StoryDoc {
   heroId: string;
   title: string;
   language: string;
-  setup: {
-    theme: string;
-    companion: string | null;
-    location: string;
-    goal: string;
-    teachingMoment: string | null;
-  };
+  setup: AdventureSetup;
+  status: 'cover_generating' | 'cover_ready' | 'cover_error' | 'complete';
+  coverImageUrl: string;
+  coverCaption: string;
   pages: StoryPage[];
   durationSeconds: number;
   readCount: number;
@@ -43,15 +40,20 @@ export interface StoryDoc {
 
 export interface AdventureSetup {
   theme: string;
-  companion: string | null;
+  themeId?: string;               // machine id: 'cosy_home' | 'astronaut' | ...
+  companion: string | null;       // type id: 'dad' | 'mom' | 'dog' | ...
+  companionName: string | null;   // display name: 'Rex', 'Bence', 'Kutya', ...
   location: string;
   goal: string;
   teachingMoment: string | null;
+  buddyPhotoStoragePath: string | null;
 }
 
 // GPT-4o output schema
 export interface GptStoryOutput {
   title: string;
+  coverImagePrompt: string;
+  coverCaption: string;
   pages: Array<{
     pageNumber: number;
     text: string;

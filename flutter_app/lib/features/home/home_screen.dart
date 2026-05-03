@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -38,6 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final heroesAsync  = ref.watch(heroListProvider(_uid));
     final storiesAsync = ref.watch(storyListProvider);
 
@@ -92,13 +94,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(height: 8),
                     Text(
                       firstHero != null
-                          ? 'Good evening, ${firstHero.name}'
-                          : 'Good evening',
+                          ? l10n.homeGreeting(firstHero.name)
+                          : l10n.homeGreetingGeneric,
                       style: AppTextStyles.displayMd(color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Ready for tonight\'s adventure?',
+                      l10n.homeSubtitle,
                       style: AppTextStyles.bodyMd(color: AppColors.textSecondary),
                     ),
                   ],
@@ -139,7 +141,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(24, 32, 24, 14),
                         child: Text(
-                          'Continue reading',
+                          l10n.homeContinueReading,
                           style: AppTextStyles.eyebrowMd(color: AppColors.textTertiary),
                         ),
                       ),
@@ -169,18 +171,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Row(
                   children: [
                     Text(
-                      'Library',
+                      l10n.homeLibrarySection,
                       style: AppTextStyles.eyebrowMd(color: AppColors.textTertiary),
                     ),
                     const Spacer(),
                     _FilterPill(
-                      label: 'Recent',
+                      label: l10n.homeFilterRecent,
                       selected: _filter == 'recent',
                       onTap: () => setState(() => _filter = 'recent'),
                     ),
                     const SizedBox(width: 8),
                     _FilterPill(
-                      label: 'Favourites',
+                      label: l10n.homeFilterFavourites,
                       selected: _filter == 'favorite',
                       onTap: () => setState(() => _filter = 'favorite'),
                     ),
@@ -243,7 +245,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
 
-      // ── Bottom tab bar §3.10 ─────────────────────────────────────────────
       bottomNavigationBar: _BottomTabBar(
         currentIndex: 0,
         onTap: (i) {
@@ -254,26 +255,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _confirmDeleteHero(BuildContext context, domain.Hero hero) async {
+    final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgElevated,
-        title: Text('Delete ${hero.name}?',
+        title: Text(l10n.homeDeleteHeroTitle(hero.name),
             style: const TextStyle(color: AppColors.textPrimary)),
         content: Text(
-          'This will permanently delete ${hero.name}\'s hero profile. Stories created with this hero will remain in your library.',
+          l10n.homeDeleteHeroMessage(hero.name),
           style: const TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(l10n.homeDialogCancel,
+                style: const TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: Text(l10n.homeDialogDelete,
+                style: const TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -284,7 +287,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Could not delete hero. Please try again.')),
+        SnackBar(content: Text(l10n.homeDeleteHeroError)),
       );
     }
   }
@@ -338,6 +341,7 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: onTap,
       onLongPress: onDelete,
@@ -396,7 +400,7 @@ class _HeroCard extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  'Adventure →',
+                  l10n.homeAdventureChip,
                   style: AppTextStyles.bodyXs(color: AppColors.bgBase),
                 ),
               ),
@@ -415,6 +419,7 @@ class _AddHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -439,7 +444,7 @@ class _AddHeroCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Add hero',
+              l10n.homeAddHero,
               style: AppTextStyles.bodySm(color: AppColors.textSecondary),
             ),
           ],
@@ -540,6 +545,7 @@ class _StoryGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final coverUrl = story.pages
         .map((p) => p.imageUrl)
         .firstWhere((url) => url.isNotEmpty, orElse: () => '');
@@ -555,7 +561,6 @@ class _StoryGridCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cover
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
@@ -570,7 +575,6 @@ class _StoryGridCard extends StatelessWidget {
                             errorWidget: (_, __, ___) => _CoverPlaceholder(),
                           )
                         : _CoverPlaceholder(),
-                    // Favourite heart
                     Positioned(
                       top: 8,
                       right: 8,
@@ -595,7 +599,6 @@ class _StoryGridCard extends StatelessWidget {
                 ),
               ),
             ),
-            // Info
             Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
@@ -609,7 +612,7 @@ class _StoryGridCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${story.pages.length} pages',
+                    l10n.homePageCount(story.pages.length),
                     style: AppTextStyles.bodyXs(color: AppColors.textTertiary),
                   ),
                 ],
@@ -652,6 +655,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (isFavoriteFilter) {
       return Center(
         child: Column(
@@ -659,10 +663,10 @@ class _EmptyState extends StatelessWidget {
           children: [
             const Text('💛', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 16),
-            Text('No favourites yet',
+            Text(l10n.homeEmptyFavouritesTitle,
                 style: AppTextStyles.displaySm(color: AppColors.textPrimary)),
             const SizedBox(height: 8),
-            Text('Tap the heart on a story to save it here.',
+            Text(l10n.homeEmptyFavouritesSubtitle,
                 style: AppTextStyles.bodyMd(color: AppColors.textTertiary)),
           ],
         ),
@@ -676,13 +680,13 @@ class _EmptyState extends StatelessWidget {
           const Text('🌙', style: TextStyle(fontSize: 56)),
           const SizedBox(height: 20),
           Text(
-            'Your adventures begin tonight',
+            l10n.homeEmptyStoriesTitle,
             style: AppTextStyles.displaySm(color: AppColors.textPrimary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            "Tap Tonight's Adventure to create your first story.",
+            l10n.homeEmptyStoriesSubtitle,
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMd(color: AppColors.textTertiary),
           ),
@@ -691,7 +695,7 @@ class _EmptyState extends StatelessWidget {
             width: 200,
             child: FilledButton(
               onPressed: onAction,
-              child: Text(hasHero ? 'Start now' : 'Create a hero'),
+              child: Text(hasHero ? l10n.homeStartNow : l10n.homeCreateHero),
             ),
           ),
         ],
@@ -733,7 +737,7 @@ class _FilterPill extends StatelessWidget {
   }
 }
 
-// ── Bottom tab bar §3.10 ──────────────────────────────────────────────────────
+// ── Bottom tab bar ────────────────────────────────────────────────────────────
 
 class _BottomTabBar extends StatelessWidget {
   const _BottomTabBar({required this.currentIndex, required this.onTap});
@@ -742,6 +746,7 @@ class _BottomTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       height: 56 + MediaQuery.of(context).padding.bottom,
       decoration: BoxDecoration(
@@ -754,19 +759,19 @@ class _BottomTabBar extends StatelessWidget {
         children: [
           _TabItem(
             icon: Icons.nightlight_round,
-            label: 'TONIGHT',
+            label: l10n.homeTabTonight,
             selected: currentIndex == 0,
             onTap: () => onTap(0),
           ),
           _TabItem(
             icon: Icons.menu_book_outlined,
-            label: 'LIBRARY',
+            label: l10n.homeTabLibrary,
             selected: currentIndex == 1,
             onTap: () => onTap(1),
           ),
           _TabItem(
             icon: Icons.settings_outlined,
-            label: 'SETTINGS',
+            label: l10n.homeTabSettings,
             selected: currentIndex == 2,
             onTap: () => onTap(2),
           ),
@@ -820,6 +825,7 @@ class _TabItem extends StatelessWidget {
 class _OfflineSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final stories = storyCache.getAll();
     if (stories.isEmpty) return const SizedBox.shrink();
 
@@ -833,7 +839,7 @@ class _OfflineSection extends StatelessWidget {
               const Icon(Icons.wifi_off, size: 13, color: AppColors.textTertiary),
               const SizedBox(width: 6),
               Text(
-                'Offline — cached stories',
+                l10n.homeOfflineIndicator,
                 style: AppTextStyles.bodyXs(color: AppColors.textTertiary),
               ),
             ],

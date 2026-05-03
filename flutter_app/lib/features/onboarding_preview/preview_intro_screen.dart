@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/lullabook_colors.dart';
 import '../../core/theme/lullabook_typography.dart';
 import '../../shared/widgets/lullabook_chip.dart';
 
-const _adventureChoices = [
-  (id: 'space_explorer', label: 'Space Explorer', emoji: '🚀'),
-  (id: 'ocean_diver', label: 'Ocean Diver', emoji: '🐬'),
-  (id: 'dragon_rider', label: 'Dragon Rider', emoji: '🐉'),
-  (id: 'forest_fairy', label: 'Forest Fairy', emoji: '🌿'),
-  (id: 'treasure_hunter', label: 'Treasure Hunter', emoji: '💎'),
-  (id: 'time_traveler', label: 'Time Traveler', emoji: '⏱️'),
+List<({String id, String label, String emoji})> _buildAdventureChoices(AppLocalizations l10n) => [
+  (id: 'space_explorer', label: l10n.previewAdventureSpaceExplorer, emoji: '🚀'),
+  (id: 'ocean_diver',    label: l10n.previewAdventureOceanDiver,    emoji: '🐬'),
+  (id: 'dragon_rider',   label: l10n.previewAdventureDragonRider,   emoji: '🐉'),
+  (id: 'forest_fairy',   label: l10n.previewAdventureForestFairy,   emoji: '🌿'),
+  (id: 'treasure_hunter',label: l10n.previewAdventureTreasureHunter,emoji: '💎'),
+  (id: 'time_traveler',  label: l10n.previewAdventureTimeTraveler,  emoji: '⏱️'),
 ];
 
-const _artStyles = [
-  (id: 'pixar_3d', label: 'Pixar Style'),
-  (id: 'watercolor', label: 'Watercolor'),
-  (id: 'flat_modern', label: 'Flat Modern'),
-  (id: 'storybook_classic', label: 'Storybook Classic'),
+List<({String id, String label})> _buildArtStyles(AppLocalizations l10n) => [
+  (id: 'pixar_3d',          label: l10n.heroArtStylePixar),
+  (id: 'watercolor',        label: l10n.heroArtStyleWatercolor),
+  (id: 'flat_modern',       label: l10n.heroArtStyleFlatModern),
+  (id: 'storybook_classic', label: l10n.heroArtStyleStorybook),
 ];
 
 class PreviewIntroScreen extends StatefulWidget {
@@ -40,11 +41,11 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  void _continue(AppLocalizations l10n) {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Enter your child's name to continue")),
+        SnackBar(content: Text(l10n.previewNameValidation)),
       );
       return;
     }
@@ -57,6 +58,10 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final adventureChoices = _buildAdventureChoices(l10n);
+    final artStyles = _buildArtStyles(l10n);
+
     return Scaffold(
       backgroundColor: AppColors.bgBase,
       body: SafeArea(
@@ -67,7 +72,6 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
             children: [
               const SizedBox(height: 16),
 
-              // Back button row
               const Row(
                 children: [
                   BackButton(color: AppColors.textSecondary),
@@ -76,20 +80,19 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
 
               const SizedBox(height: 20),
 
-              // Eyebrow + title + subtitle
-              const Text(
-                'FREE PREVIEW · NO SIGNUP',
+              Text(
+                l10n.previewEyebrow,
                 style: LullabookTypography.eyebrowMd,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'See your child\nas the hero',
+              Text(
+                l10n.previewTitle,
                 style: LullabookTypography.displayXl,
               ),
               const SizedBox(height: 8),
-              const Text(
-                "We'll show you a sneak peek before any signup.",
-                style: TextStyle(
+              Text(
+                l10n.previewSubtitle,
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   height: 1.5,
@@ -99,13 +102,12 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
 
               const SizedBox(height: 28),
 
-              // Name field
               TextField(
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(
-                  labelText: "Child's first name",
+                  labelText: l10n.previewChildNameLabel,
                   labelStyle: const TextStyle(color: AppColors.textTertiary),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -122,16 +124,15 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
 
               const SizedBox(height: 24),
 
-              // Adventure section
-              const Text(
-                'CHOOSE AN ADVENTURE',
+              Text(
+                l10n.previewAdventureHeader,
                 style: LullabookTypography.eyebrowSm,
               ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _adventureChoices.map((a) {
+                children: adventureChoices.map((a) {
                   return LullabookChip(
                     label: '${a.emoji} ${a.label}',
                     selected: _selectedAdventure == a.id,
@@ -142,16 +143,15 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
 
               const SizedBox(height: 24),
 
-              // Art style section
-              const Text(
-                'CHOOSE AN ART STYLE',
+              Text(
+                l10n.previewArtStyleHeader,
                 style: LullabookTypography.eyebrowSm,
               ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _artStyles.map((s) {
+                children: artStyles.map((s) {
                   return LullabookChip(
                     label: s.label,
                     selected: _selectedStyle == s.id,
@@ -162,10 +162,9 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
 
               const SizedBox(height: 32),
 
-              // Privacy reassurance
-              const Text(
-                'Photo deleted within 24 hours.\nWe never share your child\'s image.',
-                style: TextStyle(
+              Text(
+                l10n.previewPrivacyNote,
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 11,
                   height: 1.5,
@@ -176,12 +175,11 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
 
               const SizedBox(height: 12),
 
-              // Primary CTA — white background, dark text
               SizedBox(
                 width: double.infinity,
                 height: 54,
                 child: FilledButton(
-                  onPressed: _continue,
+                  onPressed: () => _continue(l10n),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.textPrimary,
                     foregroundColor: AppColors.bgBase,
@@ -190,8 +188,8 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Next: Add a photo',
+                  child: Text(
+                    l10n.previewNextButton,
                     style: LullabookTypography.labelButton,
                   ),
                 ),
@@ -199,13 +197,12 @@ class _PreviewIntroScreenState extends State<PreviewIntroScreen> {
 
               const SizedBox(height: 12),
 
-              // Sign in link
               Center(
                 child: TextButton(
                   onPressed: () => context.push('/auth'),
-                  child: const Text(
-                    'Already have an account? Sign in',
-                    style: TextStyle(
+                  child: Text(
+                    l10n.previewAlreadyAccount,
+                    style: const TextStyle(
                       color: AppColors.textTertiary,
                       fontSize: 14,
                     ),

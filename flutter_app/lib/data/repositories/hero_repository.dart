@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -62,6 +63,7 @@ class HeroRepository {
     required ArtStyle artStyle,
     File? photo,
     String? previewId,
+    bool debugMode = false,
   }) async {
     final callable = _functions.httpsCallable(
       'createHero',
@@ -74,17 +76,26 @@ class HeroRepository {
       'pronouns': pronouns.value,
       'definingTraits': definingTraits,
       'artStyle': artStyle.id,
+      'debugMode': debugMode,
     };
 
     if (previewId != null) {
       data['previewId'] = previewId;
     } else if (photo != null) {
       final bytes = await photo.readAsBytes();
-      data['photoBase64'] = bytes.toString();
+      data['photoBase64'] = base64Encode(bytes);
     }
 
     final result = await callable.call(data);
     return CreateHeroResult.fromMap(Map<String, dynamic>.from(result.data as Map));
+  }
+
+  Future<void> deleteHero(String heroId) async {
+    final callable = _functions.httpsCallable(
+      'deleteHero',
+      options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+    );
+    await callable.call({'heroId': heroId});
   }
 
   Future<RegenResult> regenerateHeroAnchor(String heroId) async {

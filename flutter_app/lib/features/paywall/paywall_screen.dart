@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lullabook/generated/l10n/app_localizations.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -10,6 +11,7 @@ class PaywallScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final offeringAsync = ref.watch(currentOfferingProvider);
 
     return Scaffold(
@@ -24,10 +26,10 @@ class PaywallScreen extends ConsumerWidget {
       ),
       body: offeringAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('Could not load offers')),
+        error: (_, __) => Center(child: Text(l10n.paywallErrorLoad)),
         data: (offering) {
           if (offering == null) {
-            return const Center(child: Text('No offers available'));
+            return Center(child: Text(l10n.paywallErrorNoOffers));
           }
           return _PaywallContent(offering: offering);
         },
@@ -51,7 +53,6 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
   @override
   void initState() {
     super.initState();
-    // Default selection: weekly package, fall back to first available
     _selected = widget.offering.availablePackages.firstWhere(
       (p) => p.packageType == PackageType.weekly,
       orElse: () => widget.offering.availablePackages.first,
@@ -68,7 +69,7 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Purchase failed. Please try again.')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.paywallErrorPurchaseFailed)),
         );
       }
     } finally {
@@ -82,11 +83,12 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
       final restored =
           await ref.read(revenueCatRepositoryProvider).restorePurchases();
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(restored
-                ? 'Purchases restored!'
-                : 'No active subscription found.'),
+                ? l10n.paywallPurchasesRestored
+                : l10n.paywallNoSubscription),
           ),
         );
         if (restored) Navigator.of(context).pop(true);
@@ -98,6 +100,7 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final packages = widget.offering.availablePackages;
 
     return Padding(
@@ -106,7 +109,7 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
         children: [
           const SizedBox(height: 8),
           Text(
-            'Unlock Lullabook',
+            l10n.paywallTitle,
             style: Theme.of(context).textTheme.displayMedium?.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
@@ -114,7 +117,7 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Unlimited personalized bedtime stories',
+            l10n.paywallSubtitle,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -138,14 +141,14 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text(
-                'Continue',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              child: Text(
+                l10n.paywallContinue,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
               ),
             ),
           TextButton(
             onPressed: _loading ? null : _restore,
-            child: const Text('Restore purchases'),
+            child: Text(l10n.paywallRestorePurchases),
           ),
           const SizedBox(height: 16),
         ],
@@ -165,24 +168,20 @@ class _PackageTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  String get _title {
-    if (package.packageType == PackageType.weekly) return 'Weekly';
-    if (package.packageType == PackageType.annual) return 'Yearly';
-    return package.identifier;
-  }
-
-  String get _subtitle {
-    if (package.packageType == PackageType.weekly) {
-      return '3-day free trial, then ${package.storeProduct.priceString}/week';
-    }
-    if (package.packageType == PackageType.annual) {
-      return '${package.storeProduct.priceString}/year — best value';
-    }
-    return package.storeProduct.priceString;
-  }
-
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final title = package.packageType == PackageType.weekly
+        ? l10n.paywallWeekly
+        : package.packageType == PackageType.annual
+            ? l10n.paywallYearly
+            : package.identifier;
+    final subtitle = package.packageType == PackageType.weekly
+        ? l10n.paywallWeeklySubtitle(package.storeProduct.priceString)
+        : package.packageType == PackageType.annual
+            ? l10n.paywallYearlySubtitle(package.storeProduct.priceString)
+            : package.storeProduct.priceString;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -207,10 +206,10 @@ class _PackageTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_title,
+                Text(title,
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 16)),
-                Text(_subtitle,
+                Text(subtitle,
                     style: const TextStyle(
                         color: AppColors.textSecondary, fontSize: 13)),
               ],

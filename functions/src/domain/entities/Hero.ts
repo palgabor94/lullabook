@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore';
 
-export type ArtStyle = 'pixar_3d' | 'watercolor' | 'flat_modern' | 'storybook_classic';
+export type ArtStyle = 'pixar_3d' | 'watercolor' | 'flat_modern' | 'storybook_classic' | 'ghibli' | 'anime' | 'comic';
 export type Pronouns = 'he/him' | 'she/her' | 'they/them';
 
 export interface HeroDoc {
@@ -15,6 +15,7 @@ export interface HeroDoc {
   artStyle: ArtStyle;
   regenCount: number;            // 0-2 free regens during onboarding
   narrativeTraits: string[];
+  originalPhotoStoragePath: string | null;
   originalPhotoDeletedAt: Timestamp | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;

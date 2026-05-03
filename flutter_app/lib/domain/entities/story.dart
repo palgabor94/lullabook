@@ -27,12 +27,17 @@ class StoryPage {
       );
 }
 
+enum StoryStatus { coverGenerating, coverReady, coverError, complete, unknown }
+
 class Story {
   final String storyId;
   final String heroId;
   final String title;
   final String language;
   final Map<String, dynamic> setup;
+  final StoryStatus status;
+  final String coverImageUrl;
+  final String coverCaption;
   final List<StoryPage> pages;
   final int durationSeconds;
   final int readCount;
@@ -46,6 +51,9 @@ class Story {
     required this.title,
     required this.language,
     required this.setup,
+    this.status = StoryStatus.complete,
+    this.coverImageUrl = '',
+    this.coverCaption = '',
     required this.pages,
     required this.durationSeconds,
     required this.readCount,
@@ -62,6 +70,9 @@ class Story {
       title: m['title'] as String,
       language: m['language'] as String? ?? 'en-US',
       setup: m['setup'] as Map<String, dynamic>? ?? {},
+      status: _parseStatus(m['status'] as String?),
+      coverImageUrl: m['coverImageUrl'] as String? ?? '',
+      coverCaption: m['coverCaption'] as String? ?? '',
       pages: (m['pages'] as List<dynamic>? ?? [])
           .map((p) => StoryPage.fromMap(p as Map<String, dynamic>))
           .toList()
@@ -72,5 +83,15 @@ class Story {
       favorite: m['favorite'] as bool? ?? false,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
+  }
+
+  static StoryStatus _parseStatus(String? raw) {
+    switch (raw) {
+      case 'cover_generating': return StoryStatus.coverGenerating;
+      case 'cover_ready':      return StoryStatus.coverReady;
+      case 'cover_error':      return StoryStatus.coverError;
+      case 'complete':         return StoryStatus.complete;
+      default:                 return StoryStatus.unknown;
+    }
   }
 }

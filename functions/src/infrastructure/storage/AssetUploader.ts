@@ -23,6 +23,20 @@ export class AssetUploader {
     return { storagePath, imageUrl, thumbUrl: imageUrl };
   }
 
+  async uploadBuddyPhoto(uid: string, buddyId: string, buffer: Buffer): Promise<{ storagePath: string; imageUrl: string }> {
+    const storagePath = `buddies/${uid}/${buddyId}/photo.jpg`;
+    await this.upload(storagePath, buffer, 'image/jpeg');
+    const imageUrl = await this.publicUrl(storagePath);
+    return { storagePath, imageUrl };
+  }
+
+  async uploadStoryCoverImage(uid: string, storyId: string, buffer: Buffer): Promise<{ storagePath: string; imageUrl: string }> {
+    const storagePath = `stories/${uid}/${storyId}/cover.png`;
+    await this.upload(storagePath, buffer, 'image/png');
+    const imageUrl = await this.publicUrl(storagePath);
+    return { storagePath, imageUrl };
+  }
+
   async uploadStoryPageImage(uid: string, storyId: string, pageNum: number, buffer: Buffer): Promise<string> {
     const path = `stories/${uid}/${storyId}/page_${pageNum}.png`;
     await this.upload(path, buffer, 'image/png');
